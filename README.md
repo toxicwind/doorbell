@@ -1,28 +1,28 @@
-# doorbell
+# ranch/doorbell
 
-Shared MCP monad for the estate (`ranch/doorbell`). Catalog is truth; tiers are views.
+Shared MCP helper door for **xai/** and **spark/** workspaces (never symlinked to each other).
 
-```
-Spark/xAI → doorbell :25202 (JSON-RPC+SSE) → gatehouse :25127 → MCP servers
-```
+| Process | Port | Role |
+|---------|------|------|
+| monad (`src/index.ts`) | **25204** | tier policies, sessions, tools |
+| edge (`src/edge.ts`) | **25202** | public proxy → monad |
 
-## Install on the estate host
+## Start (background — returns immediately)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/install.sh | bash
 cd /home/toxic/estate/ranch/doorbell
-# set MCPPROXY_API_KEY in .env (from ~/.secrets)
-bun install && bun run start
-curl -s localhost:25202/health
+cp -n .env.example .env   # set MCPPROXY_API_KEY from ~/.secrets
+bun install
+bun run start:bg          # nohup monad + edge; pids in ~/.doorbell/
+# stop: bun run stop:bg
+curl -s localhost:25202/health; curl -s localhost:25204/health
 curl -s localhost:25202/sessions
 ```
 
-Or unpack only:
+## Curl install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/doorbell.tar.gz.b64 | base64 -d | tar -xz -C /home/toxic/estate/ranch/doorbell
+curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/install.sh | bash
 ```
 
-## Policies
-
-Chain I→F→D→B→A→C→G→E→H. Unresolved → **router** (never silent full).
+Estate symlinks: `gemini-monad.ts` → monad, `gemini-mcp-hono.ts` → edge.
