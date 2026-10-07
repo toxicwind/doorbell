@@ -345,8 +345,7 @@ export function handleInitialize(s: AgentSession, reqId: any, requested?: string
       capabilities: { tools: { listChanged: true } },
       serverInfo: { name: "doorbell", version: VERSION },
       instructions:
-        "doorbell v7. Router dispatchers are the catalog. list_routes names upstream tools. " +
-        "Unresolved policies are router. select_tier is optional.",
+        "doorbell v7. xai sessions list the upstream tools. list_routes is not the Gemini catalog.",
       tools: resolveSurface({
         tier: s.state.tier ?? "router",
         exposeSelectTier: false,
