@@ -114,6 +114,7 @@ export function detectWorkspace(req: Request, url: URL): WorkspaceId {
   const env = (process.env.DOORBELL_WORKSPACE || "").toLowerCase();
   if (env === "spark" || env === "xai") return env;
   const ua = (req.headers.get("user-agent") || "").toLowerCase();
+  if (ua === "google" || ua.startsWith("google")) return "spark";
   if (ua.includes("grok") || ua.includes("xai")) return "xai";
   return "xai";
 }
