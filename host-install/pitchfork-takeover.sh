@@ -1,41 +1,60 @@
 #!/usr/bin/env bash
-# Put doorbell under pitchfork on :25202, prove, kill fg. Do NOT steal :25204 (awrawr-ws-exec).
+# Put doorbell under pitchfork on :25202. Never let mise touch ~/.secrets.
 set -euo pipefail
 ESTATE="${ESTATE:-/home/toxic/estate}"
 DEST="${DOORBELL_ROOT:-$ESTATE/ranch/doorbell}"
-# Avoid mise parsing ~/.secrets as dotenv (it dies on glued newlines).
+
+# Detach from mise entirely for this script (hook still injects MISE_ENV_FILE=~/.secrets)
 export MISE_DISABLE_TOOLS=1
-unset MISE_ENV_FILE || true
+unset MISE_ENV_FILE MISE_ENV MISE_PROJECT_ROOT || true
+# Prefer absolute bun so `bun` shim never re-enters mise
+BUN=/home/toxic/.bun/bin/bun
+[ -x "$BUN" ] || BUN="$(type -P bun 2>/dev/null || true)"
+[ -x "$BUN" ] || { echo "bun not found at /home/toxic/.bun/bin/bun"; exit 1; }
+run_bun() { env -u MISE_ENV_FILE -u MISE_ENV MISE_DISABLE_TOOLS=1 "$BUN" "$@"; }
+
+# --- FIRST FIX: sanitize ~/.secrets glued newlines (mise dotenv killer) ---
+SECRETS="${HOME}/.secrets"
+if [ -f "$SECRETS" ]; then
+  cp -n "$SECRETS" "${SECRETS}.bak.doorbell-$(date +%s)" 2>/dev/null || cp "$SECRETS" "${SECRETS}.bak.doorbell"
+  python3 - <<'PY'
+from pathlib import Path
+p = Path.home() / ".secrets"
+raw = p.read_bytes()
+# Fix literal backslash-n glued into values (the mise error shape)
+text = raw.decode("utf-8", "replace")
+fixed = text.replace("\\n", "\n")
+# Also split "VALUE\nexport FOO" if still one line
+import re
+fixed = re.sub(r"([^\n])export ", r"\1\nexport ", fixed)
+if fixed != text:
+    p.write_text(fixed)
+    print(f"sanitized {p} (backup *.bak.doorbell*)")
+else:
+    print(f"no glued \\\\n found in {p}; leaving as-is")
+PY
+fi
 
 if [ ! -f "$DEST/src/index.ts" ]; then
-  echo "missing $DEST — run: curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/d929cbdd9e52d84006e9663d3babdf43fa6213c8/install.sh | bash"
-  exit 1
+  echo "missing $DEST — install doorbell tree first"; exit 1
 fi
 cd "$DEST"
 [ -f .env ] || cp -n .env.example .env
 grep -q '^MONAD_PORT=' .env && sed -i 's/^MONAD_PORT=.*/MONAD_PORT=25202/' .env || echo 'MONAD_PORT=25202' >> .env
 
-# Pull only MCPPROXY_API_KEY without `source` (mise-safe)
 if [ -z "${MCPPROXY_API_KEY:-}" ]; then
   for f in "$HOME/.secrets" "$ESTATE/.env" "$DEST/.env"; do
     [ -f "$f" ] || continue
-    k=$(grep -E '^[[:space:]]*MCPPROXY_API_KEY[[:space:]]*=' "$f" | head -1 | sed -E 's/^[^=]+=[[:space:]]*//; s/^["'\'']//; s/["'\'']$//')
+    k=$(grep -E '^[[:space:]]*(export[[:space:]]+)?MCPPROXY_API_KEY[[:space:]]*=' "$f" | head -1 | sed -E 's/^[[:space:]]*(export[[:space:]]+)?MCPPROXY_API_KEY[[:space:]]*=[[:space:]]*//; s/^["'\'']//; s/["'\'']$//; s/\r$//')
     [ -n "$k" ] && export MCPPROXY_API_KEY="$k" && break
   done
 fi
 if [ -n "${MCPPROXY_API_KEY:-}" ]; then
-  if grep -q '^MCPPROXY_API_KEY=' .env; then
-    sed -i "s|^MCPPROXY_API_KEY=.*|MCPPROXY_API_KEY=${MCPPROXY_API_KEY}|" .env
-  else
-    echo "MCPPROXY_API_KEY=${MCPPROXY_API_KEY}" >> .env
-  fi
+  if grep -q '^MCPPROXY_API_KEY=' .env; then sed -i "s|^MCPPROXY_API_KEY=.*|MCPPROXY_API_KEY=${MCPPROXY_API_KEY}|" .env
+  else echo "MCPPROXY_API_KEY=${MCPPROXY_API_KEY}" >> .env; fi
 fi
 
-# bare bun, no mise wrapper
-BUN="${BUN:-$(command -v bun || true)}"
-[ -x /home/toxic/.bun/bin/bun ] && BUN=/home/toxic/.bun/bin/bun
-[ -n "$BUN" ] || { echo "bun not found"; exit 1; }
-"$BUN" install
+run_bun install
 
 mkdir -p "$ESTATE/pitchfork.d"
 cat > "$ESTATE/pitchfork.d/gemini-mcp.toml" << 'TOML'
@@ -87,23 +106,15 @@ fuser -k 25202/tcp 2>/dev/null || true
 sleep 0.5
 
 cd "$ESTATE"
-if [ -x ./bin/pitchfork-restart ]; then
-  ./bin/pitchfork-restart gemini-mcp
-else
-  pitchfork stop gemini-mcp 2>/dev/null || true
-  pitchfork start gemini-mcp
-fi
+if [ -x ./bin/pitchfork-restart ]; then ./bin/pitchfork-restart gemini-mcp
+else pitchfork stop gemini-mcp 2>/dev/null || true; pitchfork start gemini-mcp; fi
 
 ok=0
 for i in $(seq 1 20); do
   if curl -fsS "http://127.0.0.1:25202/health" >/tmp/doorbell-health.json 2>/dev/null; then ok=1; break; fi
   sleep 0.5
 done
-if [ "$ok" != 1 ]; then
-  echo "FAIL: /health not up — pitchfork logs gemini-mcp"
-  exit 1
-fi
+[ "$ok" = 1 ] || { echo "FAIL: /health — pitchfork logs gemini-mcp"; exit 1; }
 echo "=== health ==="; cat /tmp/doorbell-health.json; echo
 curl -fsS "http://127.0.0.1:25202/sessions" | head -c 2000; echo
-pkill -f 'bun run ./src/index.ts' 2>/dev/null || true
 echo "Sure. Pitchfork owns gemini-mcp/:25202. Safe to close this terminal."
