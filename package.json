@@ -1,6 +1,6 @@
 {
   "name": "@ranch/doorbell",
-  "version": "5.0.1",
+  "version": "7.0.0",
   "private": true,
   "description": "ranch/doorbell — doorbell-mcp on :25202 (gemini-mcp HTTP compat) for xai + spark",
   "type": "module",
