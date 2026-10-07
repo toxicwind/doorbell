@@ -54,7 +54,7 @@ const server = Bun.serve({
 
     // OAuth fakes
     if (path.includes("oauth-protected-resource"))
-      return Response.json(oauthProtectedResource(), { headers: cors });
+      return Response.json(oauthProtectedResource(url), { headers: cors });
     if (path.includes("oauth-authorization-server"))
       return Response.json(oauthAuthorizationServer(), { headers: cors });
     if (path.endsWith("jwks.json")) return Response.json({ keys: [] }, { headers: cors });

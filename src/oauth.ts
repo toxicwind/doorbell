@@ -5,11 +5,14 @@ import { ISSUER } from "./config.ts";
 const REDIR =
   "https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-111554610217088906669-github-mcp-host_tailc9ac71_ts_net";
 
-export function oauthProtectedResource() {
+export function oauthProtectedResource(reqUrl?: URL) {
+  const path = reqUrl?.pathname || "";
+  const resourcePath = path.includes("doorbell-mcp") ? "/doorbell-mcp" : "/gemini-mcp";
   return {
-    resource: `${ISSUER}/`,
+    resource: `${ISSUER}${resourcePath}`,
     authorization_servers: [ISSUER],
     bearer_methods_supported: ["header"],
+    scopes_supported: ["mcp"],
   };
 }
 
