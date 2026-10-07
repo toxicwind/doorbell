@@ -24,10 +24,10 @@ Unresolved policies stay on router. There is no weird-tier list.
 Source in this repo is the tree. The tarball is the same tree, for the host script.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/host-install/v7-fix.sh | bash
+curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/host-install/repull.sh | bash
 ```
 
-That unpacks into `/home/toxic/estate/ranch/doorbell` and restarts `doorbell-mcp`. Health should report version `7.0.0`.
+That pulls `main` into `/home/toxic/estate/ranch/doorbell` and cold-starts `doorbell-mcp` under mise. It does not unpack the tarball and it does not call pitchfork-restart.
 
 ## Layout
 
