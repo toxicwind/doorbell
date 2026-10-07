@@ -1,6 +1,6 @@
 #!/bin/sh
-# Pull main into an existing doorbell dir and cold-start under mise.
-# The live dir is often a tarball extract with no .git. Do not clone over it.
+# Merge origin/main into the live doorbell dir. Print the weird diff if the trees disagree.
+# Does not clone over an existing directory. Does not call pitchfork-restart.
 set -eu
 ESTATE="${ESTATE:-/home/toxic/estate}"
 DEST="${DOORBELL_ROOT:-$ESTATE/ranch/doorbell}"
@@ -13,11 +13,30 @@ if [ -f .env ]; then cp .env /tmp/doorbell.env.keep; fi
 
 if [ ! -d .git ]; then
   git init -b main
-  git remote add origin "$URL" 2>/dev/null || git remote set-url origin "$URL"
 fi
-git remote set-url origin "$URL"
+git remote remove origin 2>/dev/null || true
+git remote add origin "$URL"
 git fetch origin main
-git checkout -B main origin/main
+
+echo "=== local status ==="
+git status --short || true
+echo "=== local diff ==="
+git diff --stat || true
+git diff || true
+
+if git rev-parse --verify HEAD >/dev/null 2>&1; then
+  echo "=== diff against origin/main ==="
+  git diff --stat HEAD origin/main || true
+  git merge origin/main --no-edit --allow-unrelated-histories -X ours || {
+    echo "=== merge conflict ==="
+    git diff || true
+    git status --short || true
+    exit 1
+  }
+else
+  git checkout -B main origin/main
+fi
+
 if [ -f /tmp/doorbell.env.keep ]; then cp /tmp/doorbell.env.keep .env; fi
 echo "HEAD $(git rev-parse --short HEAD)"
 
