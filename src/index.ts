@@ -51,6 +51,12 @@ const server = Bun.serve({
     const path = url.pathname;
 
     if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    console.log(
+      `[req] ${req.method} ${path}` +
+      ` ws=${req.headers.get("x-doorbell-workspace") || "-"}` +
+      ` ua=${(req.headers.get("user-agent") || "-").slice(0, 80)}` +
+      ` agent=${req.headers.get("x-agent-id") || "-"}`
+    );
 
     // OAuth fakes
     if (path.includes("oauth-protected-resource"))
