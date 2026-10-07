@@ -1,0 +1,17 @@
+{
+  "name": "@ranch/doorbell",
+  "version": "5.0.1",
+  "private": true,
+  "description": "ranch/doorbell — doorbell-mcp on :25202 (gemini-mcp HTTP compat) for xai + spark",
+  "type": "module",
+  "scripts": {
+    "start": "bun run ./src/index.ts",
+    "start:edge": "bun run ./src/edge.ts",
+    "start:bg": "bash ./scripts/start-bg.sh",
+    "stop:bg": "bash ./scripts/stop-bg.sh",
+    "check": "bun build --no-bundle ./src/index.ts",
+    "typecheck": "bun build --no-bundle ./src/index.ts"
+  },
+  "engines": { "bun": ">=1.1.0" },
+  "license": "MIT"
+}
