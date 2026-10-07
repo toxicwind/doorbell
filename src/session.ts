@@ -345,7 +345,7 @@ export function handleInitialize(s: AgentSession, reqId: any, requested?: string
       capabilities: { tools: { listChanged: true } },
       serverInfo: { name: "doorbell", version: VERSION },
       instructions:
-        "doorbell v7. xai sessions list the upstream tools. list_routes is not the Gemini catalog.",
+        "doorbell v7. Gemini is spark. The catalog is the upstream tools, not list_routes.",
       tools: resolveSurface({
         tier: s.state.tier ?? "router",
         exposeSelectTier: false,

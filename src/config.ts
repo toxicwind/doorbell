@@ -106,6 +106,7 @@ export function loadWorkspaceConfig(ws: WorkspaceId): WorkspaceConfig {
 }
 
 export function detectWorkspace(req: Request, url: URL): WorkspaceId {
+  if (url.pathname.includes("gemini-mcp")) return "spark";
   const h = (req.headers.get("x-doorbell-workspace") || "").toLowerCase();
   if (h === "spark" || h === "xai") return h;
   const q = (url.searchParams.get("workspace") || "").toLowerCase();
