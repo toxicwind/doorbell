@@ -1,45 +1,38 @@
-# ranch/doorbell
+# doorbell
 
-Shared MCP helper door for **xai/** and **spark/** workspaces (never symlinked to each other).
+HTTP MCP door on port 25202. v7. One initialize returns the router catalog.
 
-| Process | Port | Role |
-|---------|------|------|
-| doorbell-mcp (`src/index.ts`) | **25202** | MCP + health/sessions (pitchfork daemon) |
+`/doorbell-mcp` is the primary path. `/gemini-mcp` is the same handlers. Upstream is gatehouse at `GATEHOUSE_URL` (default `http://127.0.0.1:25127/mcp`).
 
-> Port **25204** is reserved for awrawr-ws-exec — do not bind it.
+## Tools
 
-## Public HTTP paths
+The first response is the router surface. `select_tier` is optional. It is not a gate.
 
-| Path | Role |
-|------|------|
-| `/doorbell-mcp` | **Primary** MCP endpoint (GET/POST/DELETE + SSE) |
-| `/gemini-mcp` | Backwards-compat alias (same handlers) |
-| `/health`, `/sessions` | Unscoped root endpoints |
+| Tool | Job |
+|---|---|
+| call_read | dispatch a read-only tool |
+| call_write | dispatch a write or read tool |
+| call_destructive | dispatch any tool, requires confirm |
+| list_routes | names on the upstream surface |
+| route | dispatch any upstream tool |
+| select_tier | optional view change: full, router, classified, minimal, auto |
 
-Tailscale may still advertise `/gemini-mcp` — that is fine; the HTTP alias covers it. You can add a Tailscale serve path for `/doorbell-mcp` later without removing the old one.
+Unresolved policies stay on router. There is no weird-tier list.
 
-## Pitchfork takeover (host)
+## Install
 
-```bash
-# 1) secrets newline fix (once)
-curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/host-install/fix-secrets-newlines.sh | bash
-
-# 2) cold-start doorbell-mcp on :25202 (syncs full tree from tarball if incomplete; does NOT touch Tailscale)
-curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/host-install/pitchfork-takeover.sh | bash
-```
-
-Daemon name is **doorbell-mcp**. The old **gemini-mcp** daemon stanza is removed so :25202 is not double-bound; HTTP `/gemini-mcp` remains on the same process.
-
-## Start (local / background)
+Source in this repo is the tree. The tarball is the same tree, for the host script.
 
 ```bash
-cd /home/toxic/estate/ranch/doorbell
-cp -n .env.example .env   # set MCPPROXY_API_KEY from ~/.secrets
-bun install
-bun run start:bg          # nohup; pids in ~/.doorbell/
-# stop: bun run stop:bg
-curl -s localhost:25202/health
-curl -s localhost:25202/sessions
+curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/main/host-install/v7-fix.sh | bash
 ```
 
-Estate symlink: `gemini-monad.ts` → doorbell (compat name).
+That unpacks into `/home/toxic/estate/ranch/doorbell` and restarts `doorbell-mcp`. Health should report version `7.0.0`.
+
+## Layout
+
+- `src/index.ts` — HTTP entry
+- `src/session.ts` — initialize, tools/list, tools/call
+- `src/surfaces.ts` — tier views
+- `src/catalog.ts` — gatehouse pool
+- `host-install/v7-fix.sh` — yote unpack and restart

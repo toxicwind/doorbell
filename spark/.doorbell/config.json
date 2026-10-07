@@ -1,0 +1,16 @@
+{
+  "workspace": "spark",
+  "policies": {
+    "WorkspaceDefined": true,
+    "WorkspacePinned": true,
+    "ContextHeuristic": true,
+    "OperatorSeed": false,
+    "AgentPick": true,
+    "AgentRenegotiate": false,
+    "Justification": false,
+    "FleetQuota": false,
+    "EphemeralTTL": true
+  },
+  "pinnedTier": null,
+  "ephemeralTtlMs": 900000
+}

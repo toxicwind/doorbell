@@ -1,0 +1,1 @@
+{"ok":true,"service":"doorbell","version":"5.0.0","gatehouse":"http://127.0.0.1:25127/mcp","hasKey":true,"agentSessions":2,"poolEntries":1,"policies":{"xai":["WorkspaceDefined","WorkspacePinned","ContextHeuristic","AgentPick","EphemeralTTL"],"spark":["WorkspaceDefined","WorkspacePinned","ContextHeuristic","AgentPick","EphemeralTTL"]}}
