@@ -1,28 +1,44 @@
 #!/usr/bin/env bash
-# Paste on estate: put doorbell under pitchfork on :25202, prove, then kill fg shell jobs.
-# NOTE: :25204 is awrawr-ws-exec — do NOT steal it. Monad+public edge share :25202 for now.
+# Put doorbell under pitchfork on :25202, prove, kill fg. Do NOT steal :25204 (awrawr-ws-exec).
 set -euo pipefail
 ESTATE="${ESTATE:-/home/toxic/estate}"
 DEST="${DOORBELL_ROOT:-$ESTATE/ranch/doorbell}"
-cd "$ESTATE"
+# Avoid mise parsing ~/.secrets as dotenv (it dies on glued newlines).
+export MISE_DISABLE_TOOLS=1
+unset MISE_ENV_FILE || true
 
-# 1) Ensure doorbell tree + env
 if [ ! -f "$DEST/src/index.ts" ]; then
-  echo "missing $DEST — run install first"; exit 1
+  echo "missing $DEST — run: curl -fsSL https://raw.githubusercontent.com/toxicwind/doorbell/d929cbdd9e52d84006e9663d3babdf43fa6213c8/install.sh | bash"
+  exit 1
 fi
 cd "$DEST"
 [ -f .env ] || cp -n .env.example .env
-# force public port 25202 (avoid 25204 collision with awrawr-ws-exec)
 grep -q '^MONAD_PORT=' .env && sed -i 's/^MONAD_PORT=.*/MONAD_PORT=25202/' .env || echo 'MONAD_PORT=25202' >> .env
-if [ -f "$HOME/.secrets" ]; then set -a; source "$HOME/.secrets" || true; set +a; fi
-if [ -z "${MCPPROXY_API_KEY:-}" ] && [ -f "$ESTATE/.env" ]; then set -a; source "$ESTATE/.env" || true; set +a; fi
-bun install
 
-# 2) Fragment + compose into live pitchfork.toml (hand-edit gemini-mcp run target)
+# Pull only MCPPROXY_API_KEY without `source` (mise-safe)
+if [ -z "${MCPPROXY_API_KEY:-}" ]; then
+  for f in "$HOME/.secrets" "$ESTATE/.env" "$DEST/.env"; do
+    [ -f "$f" ] || continue
+    k=$(grep -E '^[[:space:]]*MCPPROXY_API_KEY[[:space:]]*=' "$f" | head -1 | sed -E 's/^[^=]+=[[:space:]]*//; s/^["'\'']//; s/["'\'']$//')
+    [ -n "$k" ] && export MCPPROXY_API_KEY="$k" && break
+  done
+fi
+if [ -n "${MCPPROXY_API_KEY:-}" ]; then
+  if grep -q '^MCPPROXY_API_KEY=' .env; then
+    sed -i "s|^MCPPROXY_API_KEY=.*|MCPPROXY_API_KEY=${MCPPROXY_API_KEY}|" .env
+  else
+    echo "MCPPROXY_API_KEY=${MCPPROXY_API_KEY}" >> .env
+  fi
+fi
+
+# bare bun, no mise wrapper
+BUN="${BUN:-$(command -v bun || true)}"
+[ -x /home/toxic/.bun/bin/bun ] && BUN=/home/toxic/.bun/bin/bun
+[ -n "$BUN" ] || { echo "bun not found"; exit 1; }
+"$BUN" install
+
 mkdir -p "$ESTATE/pitchfork.d"
 cat > "$ESTATE/pitchfork.d/gemini-mcp.toml" << 'TOML'
-# ranch/doorbell — public MCP on GEMINI_MCP_PORT (:25202). Replaces legacy gemini-mcp.ts bridge.
-# Monad internals stay on :25202 until a free MONAD_PORT is allocated (25204 = awrawr-ws-exec).
 [daemons.gemini-mcp]
 port = 25202
 run = "exec /home/toxic/.bun/bin/bun run ./src/index.ts"
@@ -37,7 +53,6 @@ auto = ["start"]
 env = { MONAD_PORT = "25202", GATEHOUSE_URL = "http://127.0.0.1:25127/mcp" }
 TOML
 
-# Patch composed pitchfork.toml in place (pitchfork does not hot-reload; restart re-registers)
 python3 - << 'PY'
 from pathlib import Path
 import re
@@ -57,27 +72,20 @@ auto = ["start"]
 env = { MONAD_PORT = "25202", GATEHOUSE_URL = "http://127.0.0.1:25127/mcp" }
 '''
 pat = re.compile(r"\[daemons\.gemini-mcp\][\s\S]*?(?=\n\[daemons\.|\Z)")
-if pat.search(text):
-    text = pat.sub(block.rstrip() + "\n", text)
-else:
-    text = text.rstrip() + "\n\n" + block
+text = pat.sub(block.rstrip() + "\n", text) if pat.search(text) else text.rstrip() + "\n\n" + block
 p.write_text(text)
 print("patched pitchfork.toml [daemons.gemini-mcp] → doorbell")
 PY
 
-# 3) Symlink compat entries (safe; failover flip)
 ln -sfn "$DEST/gemini-monad.ts" "$ESTATE/gemini-monad.ts"
-# keep gemini-mcp.ts as legacy file; pitchfork no longer runs it
 cp -n "$ESTATE/gemini-mcp.ts" "$ESTATE/gemini-mcp.ts.pre-doorbell" 2>/dev/null || true
 
-# 4) Stop throwaway fg / nohup holders of :25202 before pitchfork claims it
 pkill -f 'bun run ./src/index.ts' 2>/dev/null || true
 pkill -f 'bun run /home/toxic/estate/gemini-monad.ts' 2>/dev/null || true
 pkill -f 'bun run /home/toxic/estate/gemini-mcp.ts' 2>/dev/null || true
 fuser -k 25202/tcp 2>/dev/null || true
 sleep 0.5
 
-# 5) Pitchfork re-register + start (survives terminal death)
 cd "$ESTATE"
 if [ -x ./bin/pitchfork-restart ]; then
   ./bin/pitchfork-restart gemini-mcp
@@ -86,23 +94,16 @@ else
   pitchfork start gemini-mcp
 fi
 
-# 6) Prove — only then we are "sure"
 ok=0
-for i in 1 2 3 4 5 6 7 8 9 10; do
-  if curl -fsS "http://127.0.0.1:25202/health" >/tmp/doorbell-health.json 2>/dev/null; then
-    ok=1; break
-  fi
+for i in $(seq 1 20); do
+  if curl -fsS "http://127.0.0.1:25202/health" >/tmp/doorbell-health.json 2>/dev/null; then ok=1; break; fi
   sleep 0.5
 done
 if [ "$ok" != 1 ]; then
-  echo "FAIL: /health not up — leaving fg alone; check: pitchfork logs gemini-mcp"
+  echo "FAIL: /health not up — pitchfork logs gemini-mcp"
   exit 1
 fi
 echo "=== health ==="; cat /tmp/doorbell-health.json; echo
 curl -fsS "http://127.0.0.1:25202/sessions" | head -c 2000; echo
-
-# 7) Kill leftover throwaway jobs (pitchfork owns the port now)
 pkill -f 'bun run ./src/index.ts' 2>/dev/null || true
-# do NOT kill awrawr on 25204
 echo "Sure. Pitchfork owns gemini-mcp/:25202. Safe to close this terminal."
-echo "Fallback flip done: estate/gemini-monad.ts → ranch/doorbell; pitchfork run → doorbell src."
