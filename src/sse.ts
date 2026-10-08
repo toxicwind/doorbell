@@ -22,9 +22,15 @@ export function removeSink(key: string, sinkId: string) {
   if (set.size === 0) agentStreams.delete(key);
 }
 
-export function endpointEvent(origin: string, sessionId: string, agentId: string): Uint8Array {
+export function endpointEvent(
+  origin: string,
+  sessionId: string,
+  agentId: string,
+  path = "/doorbell-mcp",
+): Uint8Array {
+  const surface = path.includes("gemini-mcp") ? "/gemini-mcp" : path.includes("doorbell-mcp") ? "/doorbell-mcp" : "/";
   return enc.encode(
-    `event: endpoint\ndata: ${origin}/doorbell-mcp?sessionId=${sessionId}&agentId=${agentId}\n\n`,
+    `event: endpoint\ndata: ${origin}${surface}?sessionId=${sessionId}&agentId=${agentId}\n\n`,
   );
 }
 

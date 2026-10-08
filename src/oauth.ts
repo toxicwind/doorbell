@@ -7,7 +7,7 @@ const REDIR =
 
 export function oauthProtectedResource(reqUrl?: URL) {
   const path = reqUrl?.pathname || "";
-  const resourcePath = path.includes("doorbell-mcp") ? "/doorbell-mcp" : "/gemini-mcp";
+  const resourcePath = path.includes("doorbell-mcp") ? "/doorbell-mcp" : path.includes("gemini-mcp") ? "/gemini-mcp" : "";
   return {
     resource: `${ISSUER}${resourcePath}`,
     authorization_servers: [ISSUER],
