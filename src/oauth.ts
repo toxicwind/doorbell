@@ -5,24 +5,26 @@ import { ISSUER } from "./config.ts";
 const REDIR =
   "https://oauth-redirect.googleusercontent.com/r/user_bound_custom-mcp-111554610217088906669-github-mcp-host_tailc9ac71_ts_net";
 
-export function oauthProtectedResource(reqUrl?: URL) {
+export function oauthProtectedResource(reqUrl?: URL, origin?: string) {
   const path = reqUrl?.pathname || "";
   const resourcePath = path.includes("doorbell-mcp") ? "/doorbell-mcp" : path.includes("gemini-mcp") ? "/gemini-mcp" : "";
+  const base = origin || ISSUER;
   return {
-    resource: `${ISSUER}${resourcePath}`,
-    authorization_servers: [ISSUER],
+    resource: `${base}${resourcePath}`,
+    authorization_servers: [base],
     bearer_methods_supported: ["header"],
     scopes_supported: ["mcp"],
   };
 }
 
-export function oauthAuthorizationServer() {
+export function oauthAuthorizationServer(origin?: string) {
+  const base = origin || ISSUER;
   return {
-    issuer: ISSUER,
-    authorization_endpoint: `${ISSUER}/authorize`,
-    token_endpoint: `${ISSUER}/api/oauth/token`,
-    registration_endpoint: `${ISSUER}/api/oauth/register`,
-    jwks_uri: `${ISSUER}/.well-known/jwks.json`,
+    issuer: base,
+    authorization_endpoint: `${base}/authorize`,
+    token_endpoint: `${base}/api/oauth/token`,
+    registration_endpoint: `${base}/api/oauth/register`,
+    jwks_uri: `${base}/.well-known/jwks.json`,
     response_types_supported: ["code"],
     grant_types_supported: ["authorization_code", "client_credentials", "refresh_token"],
     token_endpoint_auth_methods_supported: ["none"],

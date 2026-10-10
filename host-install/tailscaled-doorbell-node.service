@@ -1,0 +1,12 @@
+[Unit]
+Description=Tailscaled (doorbell node - dedicated instance)
+After=network.target tailscaled.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/tailscaled --socket=/run/tailscale/doorbell-node.sock --state=/var/lib/tailscale-doorbell-node/tailscaled.state --statedir=/var/lib/tailscale-doorbell-node --tun=userspace-networking
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
