@@ -18,6 +18,7 @@ const ISSUER = (process.env.PUBLIC_ISSUER || "").replace(/\/$/, "");
 const DATA_DIR = process.env.DOORBELL_EDGE_DATA || join(import.meta.dir, "..", "data");
 const TOKEN_TTL = 86400;
 const CODE_TTL_MS = 600_000;
+const EXEC_WS_UPSTREAM = (process.env.EXEC_WS_UPSTREAM || "ws://127.0.0.1:25204").replace(/\/$/, "");
 
 function loadKeyFromSecrets(): string {
   const candidates = [
@@ -233,10 +234,103 @@ function originOf(req: Request, url: URL): string {
   return `${proto}://${host}`;
 }
 
+
+// ---- /exec-ws WS fast-lane passthrough (2026-10-17) ----
+// The bridge's WS lane predates this edge's funnel takeover: the client dials
+// wss://<estate-host>/exec-ws carrying its vault-surrogate X-MCP-Token, which
+// the edge's own bearer check 401s. The ws-exec gateway (:25204) is the auth
+// boundary for this path - it validates X-MCP-Token itself - so the edge
+// tunnels the upgrade straight through instead of applying verifyBearer.
+// Non-upgrade requests to /exec-ws keep the deny-by-default posture below.
+type ExecWsBridge = {
+  client: any; // ServerWebSocket, set on open
+  upstream: WebSocket | null;
+  upstreamOpen: boolean;
+  toUpstream: (string | ArrayBuffer)[];
+  toClient: (string | ArrayBuffer)[];
+  timer: ReturnType<typeof setTimeout> | null;
+};
+
+function execWsFlush(b: ExecWsBridge) {
+  if (b.upstreamOpen && b.upstream) {
+    for (const m of b.toUpstream.splice(0)) { try { (b.upstream as any).send(m); } catch {} }
+  }
+  if (b.client) {
+    for (const m of b.toClient.splice(0)) { try { b.client.send(m); } catch {} }
+  }
+}
+
+function execWsServe(req: Request, server: any): Response | undefined {
+  const mcpToken = req.headers.get("x-mcp-token") || "";
+  if (!mcpToken) {
+    return json({ error: "unauthorized", error_description: "x-mcp-token required for /exec-ws" }, 401);
+  }
+  const url = new URL(req.url);
+  const target = EXEC_WS_UPSTREAM + url.pathname + url.search;
+  const b: ExecWsBridge = { client: null, upstream: null, upstreamOpen: false, toUpstream: [], toClient: [], timer: null };
+  let up: WebSocket;
+  try {
+    up = new WebSocket(target, {
+      headers: {
+        "X-MCP-Token": mcpToken,
+        "User-Agent": req.headers.get("user-agent") || "doorbell-oauth-edge/exec-ws",
+      },
+    });
+  } catch (e: any) {
+    console.log(`[oauth-edge] exec-ws upstream dial failed: ${e?.message || e}`);
+    return json({ ok: false, error: "exec-ws upstream unreachable" }, 502);
+  }
+  b.upstream = up;
+  up.addEventListener("open", () => { b.upstreamOpen = true; execWsFlush(b); });
+  up.addEventListener("message", (ev: MessageEvent) => { b.toClient.push(ev.data as any); execWsFlush(b); });
+  up.addEventListener("close", (ev: CloseEvent) => {
+    try { b.client?.close(ev.code || 1011, ev.reason || "upstream closed"); } catch {}
+    b.upstream = null;
+  });
+  up.addEventListener("error", () => {
+    if (!b.upstreamOpen) {
+      console.log("[oauth-edge] exec-ws upstream error before open");
+      try { b.client?.close(1011, "upstream failed"); } catch {}
+    }
+  });
+  b.timer = setTimeout(() => {
+    if (!b.upstreamOpen) {
+      console.log("[oauth-edge] exec-ws upstream open timeout");
+      try { up.close(); } catch {}
+      try { b.client?.close(1013, "upstream timeout"); } catch {}
+    }
+  }, 10000);
+  if (!server.upgrade(req, { data: b })) {
+    if (b.timer) clearTimeout(b.timer);
+    try { up.close(); } catch {}
+    return json({ ok: false, error: "websocket upgrade failed" }, 500);
+  }
+  return undefined; // 101 sent - websocket handlers own the socket now
+}
+
+const execWsHandlers = {
+  open(ws: any) {
+    (ws.data as ExecWsBridge).client = ws;
+    execWsFlush(ws.data as ExecWsBridge);
+  },
+  message(ws: any, message: string | Buffer) {
+    const b = ws.data as ExecWsBridge;
+    b.toUpstream.push(message as any);
+    execWsFlush(b);
+  },
+  close(ws: any) {
+    const b = ws.data as ExecWsBridge;
+    if (b.timer) clearTimeout(b.timer);
+    try { b.upstream?.close(); } catch {}
+    b.upstream = null;
+    b.client = null;
+  },
+};
+
 Bun.serve({
   port: PORT,
   hostname: "127.0.0.1",
-  async fetch(req) {
+  async fetch(req, server) {
     const url = new URL(req.url);
     const path = url.pathname;
     const origin = originOf(req, url);
@@ -254,6 +348,14 @@ Bun.serve({
     if (path.endsWith("/token")) return tokenRequest(req);
     if (path.endsWith("/authorize")) return authorize(url);
 
+    // WS fast lane: /exec-ws upgrades tunnel to the ws-exec gateway, which
+    // validates X-MCP-Token itself - bypass the edge bearer check here.
+    if (path === "/exec-ws" && (req.headers.get("upgrade") || "").toLowerCase() === "websocket") {
+      const r = execWsServe(req, server);
+      if (r) return r;
+      return; // 101 sent by server.upgrade; websocket handlers own the socket
+    }
+
     // deny by default: everything else (MCP surface, sessions, tier/seed) needs a bearer
     if (!verifyBearer(req)) return unauthorized(origin);
     try {
@@ -262,6 +364,7 @@ Bun.serve({
       return json({ ok: false, error: `edge→doorbell: ${e?.message || e}`, upstream: UPSTREAM }, 502);
     }
   },
+  websocket: execWsHandlers,
 });
 
 console.log(`[✓] doorbell-oauth-edge :${PORT} → ${UPSTREAM} (issuer=${originOf(new Request("https://edge.local/") as any, new URL("https://edge.local/"))})`);
