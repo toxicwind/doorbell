@@ -1,5 +1,5 @@
 {
-  "name": "@ranch/doorbell",
+  "name": "@toxicwind/doorbell",
   "version": "7.0.0",
   "private": true,
   "description": "ranch/doorbell — doorbell-mcp on :25202 (gemini-mcp HTTP compat) for xai + spark",
@@ -12,6 +12,8 @@
     "check": "bun build --no-bundle ./src/index.ts",
     "typecheck": "bun build --no-bundle ./src/index.ts"
   },
-  "engines": { "bun": ">=1.1.0" },
+  "engines": {
+    "bun": ">=1.1.0"
+  },
   "license": "MIT"
 }
