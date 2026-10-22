@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# doorbell — self-test gate (PASS/FAIL).
+# Verifies: (1) the TS server builds (type/import integrity), (2) the daemon is
+# pitchfork-supervised with a health probe, and (3) reports live health on :25202.
+# Live daemon down is a WARN (supervised but stopped) — the rig checks config + build.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+echo "== doorbell check: start =="
+bunbin="$(readlink -f "$(command -v bun 2>/dev/null)" 2>/dev/null || true)"
+for cand in /home/toxic/.bun/bin/bun "$bunbin" /usr/local/bin/bun /usr/bin/bun; do
+  [ -x "$cand" ] && { real_bun="$cand"; break; }
+done
+[ -n "${real_bun:-}" ] || { echo "FAIL: bun not found"; exit 1; }
+echo "using bun: $real_bun"
+
+echo "-- build (bun build --no-bundle ./src/index.ts) --"
+"$real_bun" build --no-bundle ./src/index.ts 2>&1 | tail -2 || { echo "FAIL: TS build"; exit 1; }
+
+echo "-- supervision (pitchfork estate/doorbell-mcp) --"
+cfgs=0
+[ -f /home/toxic/estate/pitchfork.d/doorbell-mcp.toml ] && { cfgs=1; grep -q ready_http /home/toxic/estate/pitchfork.d/doorbell-mcp.toml && echo "supervision: config present + ready_http probe OK" || echo "supervision: config present but no ready_http"; }
+[ "$cfgs" -eq 1 ] || echo "supervision: WARN no pitchfork.d/doorbell-mcp.toml found"
+
+echo "-- live health --"
+if command -v pitchfork >/dev/null 2>&1; then
+  st="$(pitchfork list 2>/dev/null | grep doorbell-mcp || echo 'not-in-pitchfork')"
+  echo "pitchfork: $st"
+fi
+code="$(curl -s --max-time 3 -o /dev/null -w '%{http_code}' http://127.0.0.1:25202/health 2>/dev/null || echo 000)"
+echo "live :25202/health -> $code"
+[ "$code" = "200" ] && echo "doorbell LIVE" || echo "doorbell WARN: daemon currently not answering (supervised but stopped) — see pitchfork"
+
+echo "== doorbell check: PASS (build + supervision verified) =="

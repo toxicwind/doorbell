@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# doorbell — doorbell-mcp entry (bun). Serves MCP over HTTP on port from env.
+# Supervised by pitchfork as estate/doorbell-mcp (:25202).
+# Usage: bin/run  (direct local start; normally you would not run this — use
+#                  bin/check to verify the pitchfork-supervised daemon instead)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+exec bun run ./src/index.ts

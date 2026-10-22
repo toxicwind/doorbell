@@ -1,0 +1,4 @@
+[tasks]
+run = "bin/run"
+check = "bin/check"
+typecheck = "bun build --no-bundle ./src/index.ts"
