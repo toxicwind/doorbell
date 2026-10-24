@@ -76,7 +76,14 @@ export async function handleToolsCall(s, reqId, params){
     const sanitized=sanitizeWire(r.text);
     return extractJson(sanitized)||ok(reqId,sanitized);
   }
-  const isDispatcher=/^(route|call_(read|write|destructive|fetch|inspect|action)|sniff|burrow|pounce|tunnel|call_tool_(read|write|destructive|fetch))$/.test(String(name));
+  // Upstream (thresher) exposes call_tool_read/write/destructive itself: pass those through intact.
+  // call_tool_fetch/query are advertised by retrieve_tools but not routed upstream; fold into call_tool_read.
+  if(/^call_tool_(fetch|query)$/.test(String(name)) && !s.catalog.some(t=>t.name===name) && s.catalog.some(t=>t.name==="call_tool_read")){
+    const r=await gfetch(getPool(s.poolKey)?.gateSid??s.state.gateSid,{jsonrpc:"2.0",id:reqId,method:"tools/call",params:{name:"call_tool_read",arguments:args}});
+    if(r.sid) promotePoolGateSid(s.poolKey,r.sid);
+    const sz=sanitizeWire(r.text); return extractJson(sz)||ok(reqId,sz);
+  }
+  const isDispatcher=!s.catalog.some(t=>t.name===name) && /^(route|call_(read|write|query|fetch|inspect|action)|sniff|burrow|pounce|tunnel|call_tool_(read|write|query|fetch))$/.test(String(name));
   let targetName=name; let targetArgs=args;
   if(isDispatcher){
     targetName=String(args.tool||args.name||""); if(!targetName) targetName=name;
