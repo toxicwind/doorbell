@@ -199,11 +199,11 @@ function authorize(url: URL) {
 const isMcpPath = (p: string) =>
   p === "/" || p.includes("doorbell-mcp") || p.includes("gemini-mcp") || p.endsWith("/mcp");
 
-function unauthorized(origin: string) {
+function unauthorized(origin: string, path = "") {
   return json(
     { error: "unauthorized", error_description: "valid bearer required; POST /api/oauth/token (client_credentials)" },
     401,
-    { "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource"` },
+    { "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${isMcpPath(path) && path !== "/" ? path.replace(/\/+$/, "") : ""}"` },
   );
 }
 
@@ -390,7 +390,7 @@ Bun.serve({
     }
 
     // deny by default: everything else (MCP surface, sessions, tier/seed) needs a bearer
-    if (!verifyBearer(req)) return unauthorized(origin);
+    if (!verifyBearer(req)) return unauthorized(origin, path);
     try {
       return await proxy(req);
     } catch (e: any) {
