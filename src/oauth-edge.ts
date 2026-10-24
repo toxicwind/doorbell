@@ -18,6 +18,7 @@ const ISSUER = (process.env.PUBLIC_ISSUER || "").replace(/\/$/, "");
 const DATA_DIR = process.env.DOORBELL_EDGE_DATA || join(import.meta.dir, "..", "data");
 const TOKEN_TTL = 86400;
 const CODE_TTL_MS = 600_000;
+const SQUAWK_WS_UPSTREAM = (process.env.SQUAWK_WS_UPSTREAM || "ws://127.0.0.1:25147").replace(/\/$/, "");
 const EXEC_WS_UPSTREAM = (process.env.EXEC_WS_UPSTREAM || "ws://127.0.0.1:25204").replace(/\/$/, "");
 
 function loadKeyFromSecrets(): string {
@@ -266,19 +267,39 @@ function execWsServe(req: Request, server: any): Response | undefined {
     return json({ error: "unauthorized", error_description: "x-mcp-token required for /exec-ws" }, 401);
   }
   const url = new URL(req.url);
-  const target = EXEC_WS_UPSTREAM + url.pathname + url.search;
+  return wsTunnel(req, server, EXEC_WS_UPSTREAM + url.pathname + url.search, { "X-MCP-Token": mcpToken }, "exec-ws");
+}
+
+// ---- /squawk-ws public lane (2026-10-23) ----
+// Cell-side (hatch/MetaAIVM) clients dial wss://github-mcp-host.../squawk-ws
+// with Authorization: Bearer <squawk token> or ?token=. squawk-ws (:25147)
+// validates the token itself (constant-time, ~/.squawk-ws-token + feed token),
+// so the edge only requires one to be present and tunnels the upgrade.
+function squawkWsServe(req: Request, server: any): Response | undefined {
+  const url = new URL(req.url);
+  const auth = req.headers.get("authorization") || "";
+  if (!auth && !url.searchParams.get("token")) {
+    return json({ error: "unauthorized", error_description: "Bearer or ?token= required for /squawk-ws" }, 401);
+  }
+  const sub = url.pathname.replace(/^\/squawk-ws/, "") || "/";
+  const headers: Record<string, string> = {};
+  if (auth) headers["Authorization"] = auth;
+  return wsTunnel(req, server, SQUAWK_WS_UPSTREAM + sub + url.search, headers, "squawk-ws");
+}
+
+function wsTunnel(req: Request, server: any, target: string, extra: Record<string, string>, label: string): Response | undefined {
   const b: ExecWsBridge = { client: null, upstream: null, upstreamOpen: false, toUpstream: [], toClient: [], timer: null };
   let up: WebSocket;
   try {
     up = new WebSocket(target, {
       headers: {
-        "X-MCP-Token": mcpToken,
-        "User-Agent": req.headers.get("user-agent") || "doorbell-oauth-edge/exec-ws",
+        ...extra,
+        "User-Agent": req.headers.get("user-agent") || `doorbell-oauth-edge/${label}`,
       },
     });
   } catch (e: any) {
-    console.log(`[oauth-edge] exec-ws upstream dial failed: ${e?.message || e}`);
-    return json({ ok: false, error: "exec-ws upstream unreachable" }, 502);
+    console.log(`[oauth-edge] ${label} upstream dial failed: ${e?.message || e}`);
+    return json({ ok: false, error: `${label} upstream unreachable` }, 502);
   }
   b.upstream = up;
   up.addEventListener("open", () => { b.upstreamOpen = true; execWsFlush(b); });
@@ -289,13 +310,13 @@ function execWsServe(req: Request, server: any): Response | undefined {
   });
   up.addEventListener("error", () => {
     if (!b.upstreamOpen) {
-      console.log("[oauth-edge] exec-ws upstream error before open");
+      console.log(`[oauth-edge] ${label} upstream error before open`);
       try { b.client?.close(1011, "upstream failed"); } catch {}
     }
   });
   b.timer = setTimeout(() => {
     if (!b.upstreamOpen) {
-      console.log("[oauth-edge] exec-ws upstream open timeout");
+      console.log(`[oauth-edge] ${label} upstream open timeout`);
       try { up.close(); } catch {}
       try { b.client?.close(1013, "upstream timeout"); } catch {}
     }
@@ -354,6 +375,18 @@ Bun.serve({
       const r = execWsServe(req, server);
       if (r) return r;
       return; // 101 sent by server.upgrade; websocket handlers own the socket
+    }
+
+    if ((path === "/squawk-ws" || path.startsWith("/squawk-ws/")) && (req.headers.get("upgrade") || "").toLowerCase() === "websocket") {
+      const r = squawkWsServe(req, server);
+      if (r) return r;
+      return;
+    }
+    if (path === "/squawk-ws/ping" || path === "/squawk-ws/health") {
+      try {
+        const r = await fetch(SQUAWK_WS_UPSTREAM.replace(/^ws/, "http") + "/ping");
+        return new Response(await r.text(), { status: r.status, headers: { "content-type": "application/json", ...cors } });
+      } catch (e: any) { return json({ ok: false, error: "squawk-ws unreachable" }, 502); }
     }
 
     // deny by default: everything else (MCP surface, sessions, tier/seed) needs a bearer
