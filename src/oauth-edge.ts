@@ -13,13 +13,20 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 const PORT = parseInt(process.env.OAUTH_EDGE_PORT || "25217", 10);
-const UPSTREAM = (process.env.DOORBELL_UPSTREAM || "http://127.0.0.1:25202").replace(/\/$/, "");
+const UPSTREAM = (
+  process.env.DOORBELL_UPSTREAM || "http://127.0.0.1:25202"
+).replace(/\/$/, "");
 const ISSUER = (process.env.PUBLIC_ISSUER || "").replace(/\/$/, "");
-const DATA_DIR = process.env.DOORBELL_EDGE_DATA || join(import.meta.dir, "..", "data");
+const DATA_DIR =
+  process.env.DOORBELL_EDGE_DATA || join(import.meta.dir, "..", "data");
 const TOKEN_TTL = 86400;
 const CODE_TTL_MS = 600_000;
-const SQUAWK_WS_UPSTREAM = (process.env.SQUAWK_WS_UPSTREAM || "ws://127.0.0.1:25147").replace(/\/$/, "");
-const EXEC_WS_UPSTREAM = (process.env.EXEC_WS_UPSTREAM || "ws://127.0.0.1:25204").replace(/\/$/, "");
+const SQUAWK_WS_UPSTREAM = (
+  process.env.SQUAWK_WS_UPSTREAM || "ws://127.0.0.1:25147"
+).replace(/\/$/, "");
+const EXEC_WS_UPSTREAM = (
+  process.env.EXEC_WS_UPSTREAM || "ws://127.0.0.1:25204"
+).replace(/\/$/, "");
 
 function loadKeyFromSecrets(): string {
   const candidates = [
@@ -29,7 +36,9 @@ function loadKeyFromSecrets(): string {
   for (const p of candidates) {
     try {
       if (!existsSync(p)) continue;
-      const m = readFileSync(p, "utf8").match(/MCPPROXY_API_KEY\s*[=:]\s*["']?([A-Za-z0-9_-]+)/);
+      const m = readFileSync(p, "utf8").match(
+        /MCPPROXY_API_KEY\s*[=:]\s*["']?([A-Za-z0-9_-]+)/,
+      );
       if (m?.[1]) return m[1];
     } catch {}
   }
@@ -51,7 +60,10 @@ const cors: Record<string, string> = {
 };
 
 function json(body: unknown, status = 200, extra: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json", ...cors, ...extra } });
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", ...cors, ...extra },
+  });
 }
 
 function hmac(input: string) {
@@ -61,7 +73,11 @@ function hmac(input: string) {
 function signToken(ttl = TOKEN_TTL) {
   const exp = Math.floor(Date.now() / 1000) + ttl;
   const body = exp.toString(16);
-  return { access_token: `tok_${body}.${hmac(`doorbell:v1:${body}`)}`, token_type: "Bearer", expires_in: ttl };
+  return {
+    access_token: `tok_${body}.${hmac(`doorbell:v1:${body}`)}`,
+    token_type: "Bearer",
+    expires_in: ttl,
+  };
 }
 
 function bearerToken(req: Request): string | null {
@@ -81,7 +97,9 @@ function verifyBearer(req: Request): boolean {
 }
 
 function ctEq(a: string, b: string): boolean {
-  return a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
+  return (
+    a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b))
+  );
 }
 
 function sha(v: string): string {
@@ -89,11 +107,20 @@ function sha(v: string): string {
 }
 
 // ---- registered clients (persisted; secrets stored hashed) ----
-type Client = { client_id: string; secret_hash: string; redirect_uris: string[]; created: string };
+type Client = {
+  client_id: string;
+  secret_hash: string;
+  redirect_uris: string[];
+  created: string;
+};
 const clientsPath = () => join(DATA_DIR, "oauth-clients.json");
 
 function loadClients(): Record<string, Client> {
-  try { return JSON.parse(readFileSync(clientsPath(), "utf8")); } catch { return {}; }
+  try {
+    return JSON.parse(readFileSync(clientsPath(), "utf8"));
+  } catch {
+    return {};
+  }
 }
 
 function saveClients(all: Record<string, Client>) {
@@ -101,11 +128,16 @@ function saveClients(all: Record<string, Client>) {
   const tmp = clientsPath() + ".tmp";
   writeFileSync(tmp, JSON.stringify(all, null, 2), { mode: 0o600 });
   writeFileSync(clientsPath(), JSON.stringify(all, null, 2), { mode: 0o600 });
-  try { if (existsSync(tmp)) writeFileSync(tmp + ".discard", ""); } catch {}
+  try {
+    if (existsSync(tmp)) writeFileSync(tmp + ".discard", "");
+  } catch {}
 }
 
 // ---- authorization codes (in-memory, single-use, bound to client+redirect) ----
-const codes = new Map<string, { client_id: string; redirect_uri: string; exp: number }>();
+const codes = new Map<
+  string,
+  { client_id: string; redirect_uri: string; exp: number }
+>();
 
 // ---- OAuth doc shapes (MCP-spec compatible) ----
 function oauthAuthorizationServer(origin: string) {
@@ -123,7 +155,9 @@ function oauthAuthorizationServer(origin: string) {
 }
 
 function oauthProtectedResource(origin: string, path: string) {
-  const resourcePath = path.includes("gemini-mcp") ? "/gemini-mcp" : "/doorbell-mcp";
+  const resourcePath = path.includes("gemini-mcp")
+    ? "/gemini-mcp"
+    : "/doorbell-mcp";
   return {
     resource: `${origin}${resourcePath}`,
     authorization_servers: [origin],
@@ -137,7 +171,9 @@ async function tokenRequest(req: Request) {
   const raw = await req.text();
   let p: Record<string, string> = {};
   if (ct.includes("json")) {
-    try { p = JSON.parse(raw); } catch {}
+    try {
+      p = JSON.parse(raw);
+    } catch {}
   } else {
     for (const [k, v] of new URLSearchParams(raw)) p[k] = v;
   }
@@ -153,7 +189,10 @@ async function tokenRequest(req: Request) {
   if (grant === "authorization_code") {
     const c = codes.get(p.code || "");
     const ok =
-      !!c && c.exp > Date.now() && c.client_id === (p.client_id || "") && c.redirect_uri === (p.redirect_uri || "");
+      !!c &&
+      c.exp > Date.now() &&
+      c.client_id === (p.client_id || "") &&
+      c.redirect_uri === (p.redirect_uri || "");
     if (!ok) return json({ error: "invalid_grant" }, 400);
     codes.delete(p.code);
     return json(signToken());
@@ -165,17 +204,38 @@ function registerClient(req: Request) {
   return req.text().then((raw) => {
     const ct = (req.headers.get("content-type") || "").toLowerCase();
     let body: any = {};
-    try { body = ct.includes("json") ? JSON.parse(raw) : Object.fromEntries(new URLSearchParams(raw)); } catch {}
+    try {
+      body = ct.includes("json")
+        ? JSON.parse(raw)
+        : Object.fromEntries(new URLSearchParams(raw));
+    } catch {}
     const client_id = `client_${randomBytes(4).toString("hex")}`;
     const client_secret = randomBytes(24).toString("hex");
-    const redirect_uris: string[] = Array.isArray(body.redirect_uris) && body.redirect_uris.length
-      ? body.redirect_uris.map(String)
-      : ["http://127.0.0.1/cb"];
+    const redirect_uris: string[] =
+      Array.isArray(body.redirect_uris) && body.redirect_uris.length
+        ? body.redirect_uris.map(String)
+        : ["http://127.0.0.1/cb"];
     const all = loadClients();
-    all[client_id] = { client_id, secret_hash: sha(client_secret), redirect_uris, created: new Date().toISOString() };
+    all[client_id] = {
+      client_id,
+      secret_hash: sha(client_secret),
+      redirect_uris,
+      created: new Date().toISOString(),
+    };
     saveClients(all);
-    console.log(`[oauth-edge] dcr client=${client_id} redirects=${redirect_uris.length}`);
-    return json({ client_id, client_secret, redirect_uris, grant_types: ["authorization_code", "client_credentials"], token_endpoint_auth_method: "client_secret_post" }, 201);
+    console.log(
+      `[oauth-edge] dcr client=${client_id} redirects=${redirect_uris.length}`,
+    );
+    return json(
+      {
+        client_id,
+        client_secret,
+        redirect_uris,
+        grant_types: ["authorization_code", "client_credentials"],
+        token_endpoint_auth_method: "client_secret_post",
+      },
+      201,
+    );
   });
 }
 
@@ -185,7 +245,13 @@ function authorize(url: URL) {
   const state = url.searchParams.get("state") || "";
   const c = loadClients()[client_id];
   if (!c || !redirect_uri || !c.redirect_uris.includes(redirect_uri)) {
-    return json({ error: "unauthorized_client", error_description: "client not registered or redirect_uri mismatch" }, 400);
+    return json(
+      {
+        error: "unauthorized_client",
+        error_description: "client not registered or redirect_uri mismatch",
+      },
+      400,
+    );
   }
   const code = `code_${randomBytes(12).toString("hex")}`;
   codes.set(code, { client_id, redirect_uri, exp: Date.now() + CODE_TTL_MS });
@@ -193,17 +259,29 @@ function authorize(url: URL) {
   u.searchParams.set("code", code);
   if (state) u.searchParams.set("state", state);
   console.log(`[oauth-edge] authorize client=${client_id}`);
-  return new Response(null, { status: 302, headers: { Location: u.toString(), "Access-Control-Allow-Origin": "*" } });
+  return new Response(null, {
+    status: 302,
+    headers: { Location: u.toString(), "Access-Control-Allow-Origin": "*" },
+  });
 }
 
 const isMcpPath = (p: string) =>
-  p === "/" || p.includes("doorbell-mcp") || p.includes("gemini-mcp") || p.endsWith("/mcp");
+  p === "/" ||
+  p.includes("doorbell-mcp") ||
+  p.includes("gemini-mcp") ||
+  p.endsWith("/mcp");
 
 function unauthorized(origin: string, path = "") {
   return json(
-    { error: "unauthorized", error_description: "valid bearer required; POST /api/oauth/token (client_credentials)" },
+    {
+      error: "unauthorized",
+      error_description:
+        "valid bearer required; POST /api/oauth/token (client_credentials)",
+    },
     401,
-    { "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${isMcpPath(path) && path !== "/" ? path.replace(/\/+$/, "") : ""}"` },
+    {
+      "WWW-Authenticate": `Bearer resource_metadata="${origin}/.well-known/oauth-protected-resource${isMcpPath(path) && path !== "/" ? path.replace(/\/+$/, "") : ""}"`,
+    },
   );
 }
 
@@ -212,8 +290,17 @@ async function proxy(req: Request): Promise<Response> {
   const target = new URL(url.pathname + url.search, UPSTREAM);
   const headers = new Headers();
   for (const h of [
-    "content-type", "accept", "authorization", "mcp-session-id", "last-event-id",
-    "x-agent-id", "x-agent-role", "x-agent-model", "x-doorbell-workspace", "x-grok-bot", "user-agent",
+    "content-type",
+    "accept",
+    "authorization",
+    "mcp-session-id",
+    "last-event-id",
+    "x-agent-id",
+    "x-agent-role",
+    "x-agent-model",
+    "x-doorbell-workspace",
+    "x-grok-bot",
+    "user-agent",
   ]) {
     const v = req.headers.get(h);
     if (v) headers.set(h, v);
@@ -230,11 +317,14 @@ async function proxy(req: Request): Promise<Response> {
 
 function originOf(req: Request, url: URL): string {
   if (ISSUER) return ISSUER;
-  const proto = req.headers.get("x-forwarded-proto") || url.protocol.replace(":", "") || "https";
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
+  const proto =
+    req.headers.get("x-forwarded-proto") ||
+    url.protocol.replace(":", "") ||
+    "https";
+  const host =
+    req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
   return `${proto}://${host}`;
 }
-
 
 // ---- /exec-ws WS fast-lane passthrough (2026-10-17) ----
 // The bridge's WS lane predates this edge's funnel takeover: the client dials
@@ -254,20 +344,40 @@ type ExecWsBridge = {
 
 function execWsFlush(b: ExecWsBridge) {
   if (b.upstreamOpen && b.upstream) {
-    for (const m of b.toUpstream.splice(0)) { try { (b.upstream as any).send(m); } catch {} }
+    for (const m of b.toUpstream.splice(0)) {
+      try {
+        (b.upstream as any).send(m);
+      } catch {}
+    }
   }
   if (b.client) {
-    for (const m of b.toClient.splice(0)) { try { b.client.send(m); } catch {} }
+    for (const m of b.toClient.splice(0)) {
+      try {
+        b.client.send(m);
+      } catch {}
+    }
   }
 }
 
 function execWsServe(req: Request, server: any): Response | undefined {
   const mcpToken = req.headers.get("x-mcp-token") || "";
   if (!mcpToken) {
-    return json({ error: "unauthorized", error_description: "x-mcp-token required for /exec-ws" }, 401);
+    return json(
+      {
+        error: "unauthorized",
+        error_description: "x-mcp-token required for /exec-ws",
+      },
+      401,
+    );
   }
   const url = new URL(req.url);
-  return wsTunnel(req, server, EXEC_WS_UPSTREAM + url.pathname + url.search, { "X-MCP-Token": mcpToken }, "exec-ws");
+  return wsTunnel(
+    req,
+    server,
+    EXEC_WS_UPSTREAM + url.pathname + url.search,
+    { "X-MCP-Token": mcpToken },
+    "exec-ws",
+  );
 }
 
 // ---- /squawk-ws public lane (2026-10-23) ----
@@ -279,51 +389,95 @@ function squawkWsServe(req: Request, server: any): Response | undefined {
   const url = new URL(req.url);
   const auth = req.headers.get("authorization") || "";
   if (!auth && !url.searchParams.get("token")) {
-    return json({ error: "unauthorized", error_description: "Bearer or ?token= required for /squawk-ws" }, 401);
+    return json(
+      {
+        error: "unauthorized",
+        error_description: "Bearer or ?token= required for /squawk-ws",
+      },
+      401,
+    );
   }
   const sub = url.pathname.replace(/^\/squawk-ws/, "") || "/";
   const headers: Record<string, string> = {};
   if (auth) headers["Authorization"] = auth;
-  return wsTunnel(req, server, SQUAWK_WS_UPSTREAM + sub + url.search, headers, "squawk-ws");
+  return wsTunnel(
+    req,
+    server,
+    SQUAWK_WS_UPSTREAM + sub + url.search,
+    headers,
+    "squawk-ws",
+  );
 }
 
-function wsTunnel(req: Request, server: any, target: string, extra: Record<string, string>, label: string): Response | undefined {
-  const b: ExecWsBridge = { client: null, upstream: null, upstreamOpen: false, toUpstream: [], toClient: [], timer: null };
+function wsTunnel(
+  req: Request,
+  server: any,
+  target: string,
+  extra: Record<string, string>,
+  label: string,
+): Response | undefined {
+  const b: ExecWsBridge = {
+    client: null,
+    upstream: null,
+    upstreamOpen: false,
+    toUpstream: [],
+    toClient: [],
+    timer: null,
+  };
   let up: WebSocket;
   try {
     up = new WebSocket(target, {
       headers: {
         ...extra,
-        "User-Agent": req.headers.get("user-agent") || `doorbell-oauth-edge/${label}`,
+        "User-Agent":
+          req.headers.get("user-agent") || `doorbell-oauth-edge/${label}`,
       },
     });
   } catch (e: any) {
-    console.log(`[oauth-edge] ${label} upstream dial failed: ${e?.message || e}`);
+    console.log(
+      `[oauth-edge] ${label} upstream dial failed: ${e?.message || e}`,
+    );
     return json({ ok: false, error: `${label} upstream unreachable` }, 502);
   }
   b.upstream = up;
-  up.addEventListener("open", () => { b.upstreamOpen = true; execWsFlush(b); });
-  up.addEventListener("message", (ev: MessageEvent) => { b.toClient.push(ev.data as any); execWsFlush(b); });
+  up.addEventListener("open", () => {
+    b.upstreamOpen = true;
+    execWsFlush(b);
+  });
+  up.addEventListener("message", (ev: MessageEvent) => {
+    b.toClient.push(ev.data as any);
+    execWsFlush(b);
+  });
   up.addEventListener("close", (ev: CloseEvent) => {
-    try { b.client?.close(ev.code || 1011, ev.reason || "upstream closed"); } catch {}
+    try {
+      b.client?.close(ev.code || 1011, ev.reason || "upstream closed");
+    } catch {}
     b.upstream = null;
   });
   up.addEventListener("error", () => {
     if (!b.upstreamOpen) {
       console.log(`[oauth-edge] ${label} upstream error before open`);
-      try { b.client?.close(1011, "upstream failed"); } catch {}
+      try {
+        b.client?.close(1011, "upstream failed");
+      } catch {}
     }
   });
   b.timer = setTimeout(() => {
     if (!b.upstreamOpen) {
       console.log(`[oauth-edge] ${label} upstream open timeout`);
-      try { up.close(); } catch {}
-      try { b.client?.close(1013, "upstream timeout"); } catch {}
+      try {
+        up.close();
+      } catch {}
+      try {
+        b.client?.close(1013, "upstream timeout");
+      } catch {}
     }
   }, 10000);
   if (!server.upgrade(req, { data: b })) {
     if (b.timer) clearTimeout(b.timer);
-    try { up.close(); } catch {}
+    try {
+      up.close();
+    } catch {}
     return json({ ok: false, error: "websocket upgrade failed" }, 500);
   }
   return undefined; // 101 sent - websocket handlers own the socket now
@@ -342,7 +496,9 @@ const execWsHandlers = {
   close(ws: any) {
     const b = ws.data as ExecWsBridge;
     if (b.timer) clearTimeout(b.timer);
-    try { b.upstream?.close(); } catch {}
+    try {
+      b.upstream?.close();
+    } catch {}
     b.upstream = null;
     b.client = null;
   },
@@ -356,9 +512,15 @@ Bun.serve({
     const path = url.pathname;
     const origin = originOf(req, url);
 
-    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (req.method === "OPTIONS")
+      return new Response(null, { status: 204, headers: cors });
 
-    if (path === "/health") return json({ ok: true, service: "doorbell-oauth-edge", upstream: UPSTREAM });
+    if (path === "/health")
+      return json({
+        ok: true,
+        service: "doorbell-oauth-edge",
+        upstream: UPSTREAM,
+      });
 
     if (path.includes("oauth-protected-resource"))
       return json(oauthProtectedResource(origin, path));
@@ -371,22 +533,62 @@ Bun.serve({
 
     // WS fast lane: /exec-ws upgrades tunnel to the ws-exec gateway, which
     // validates X-MCP-Token itself - bypass the edge bearer check here.
-    if (path === "/exec-ws" && (req.headers.get("upgrade") || "").toLowerCase() === "websocket") {
+    if (
+      path === "/exec-ws" &&
+      (req.headers.get("upgrade") || "").toLowerCase() === "websocket"
+    ) {
       const r = execWsServe(req, server);
       if (r) return r;
       return; // 101 sent by server.upgrade; websocket handlers own the socket
     }
 
-    if ((path === "/squawk-ws" || path.startsWith("/squawk-ws/")) && (req.headers.get("upgrade") || "").toLowerCase() === "websocket") {
+    if (
+      (path === "/squawk-ws" || path.startsWith("/squawk-ws/")) &&
+      (req.headers.get("upgrade") || "").toLowerCase() === "websocket"
+    ) {
       const r = squawkWsServe(req, server);
       if (r) return r;
       return;
     }
     if (path === "/squawk-ws/ping" || path === "/squawk-ws/health") {
       try {
-        const r = await fetch(SQUAWK_WS_UPSTREAM.replace(/^ws/, "http") + "/ping");
-        return new Response(await r.text(), { status: r.status, headers: { "content-type": "application/json", ...cors } });
-      } catch (e: any) { return json({ ok: false, error: "squawk-ws unreachable" }, 502); }
+        const r = await fetch(
+          SQUAWK_WS_UPSTREAM.replace(/^ws/, "http") + "/ping",
+        );
+        return new Response(await r.text(), {
+          status: r.status,
+          headers: { "content-type": "application/json", ...cors },
+        });
+      } catch (e: any) {
+        return json({ ok: false, error: "squawk-ws unreachable" }, 502);
+      }
+    }
+
+    // Fast http→wss lane for the MCP surface (2026-10-24): a WebSocket upgrade
+    // on /doorbell-mcp | /gemini-mcp | /mcp goes through the SAME bearer gate
+    // as a POST, then is tunneled to the monad's WS endpoint. Remote clients
+    // (Gemini Connected Apps, MCP over Browser, other hosts) get a persistent
+    // bidirectional channel instead of per-request SSE. /exec-ws and
+    // /squawk-ws keep their own auth lanes above; the MCP surface stays
+    // deny-by-default unless a valid Bearer token is presented.
+    if (
+      isMcpPath(path) &&
+      (req.headers.get("upgrade") || "").toLowerCase() === "websocket"
+    ) {
+      if (!verifyBearer(req)) return unauthorized(origin, path);
+      const wsUpstream =
+        "ws://" +
+        UPSTREAM.replace(/^https?:\/\//, "").replace(/\/$/, "") +
+        "/doorbell-mcp";
+      const r = wsTunnel(
+        req,
+        server,
+        wsUpstream + url.search,
+        {},
+        "doorbell-ws",
+      );
+      if (r) return r;
+      return; // 101 sent by server.upgrade; wsTunnel owns the socket
     }
 
     // deny by default: everything else (MCP surface, sessions, tier/seed) needs a bearer
@@ -394,10 +596,19 @@ Bun.serve({
     try {
       return await proxy(req);
     } catch (e: any) {
-      return json({ ok: false, error: `edge→doorbell: ${e?.message || e}`, upstream: UPSTREAM }, 502);
+      return json(
+        {
+          ok: false,
+          error: `edge→doorbell: ${e?.message || e}`,
+          upstream: UPSTREAM,
+        },
+        502,
+      );
     }
   },
   websocket: execWsHandlers,
 });
 
-console.log(`[✓] doorbell-oauth-edge :${PORT} → ${UPSTREAM} (issuer=${originOf(new Request("https://edge.local/") as any, new URL("https://edge.local/"))})`);
+console.log(
+  `[✓] doorbell-oauth-edge :${PORT} → ${UPSTREAM} (issuer=${originOf(new Request("https://edge.local/") as any, new URL("https://edge.local/"))})`,
+);

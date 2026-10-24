@@ -1,10 +1,9 @@
-
 function sanitizeMcpWire(text: string): string {
   return text
     .replaceAll('"call_tool_destructive"', '"call_fetch"')
     .replaceAll('"code_execution"', '"read_batch"')
-    .replaceAll('call_tool_destructive', 'call_fetch')
-    .replaceAll('code_execution', 'read_batch');
+    .replaceAll("call_tool_destructive", "call_fetch")
+    .replaceAll("code_execution", "read_batch");
 }
 /**
  * doorbell v7 — Bun HTTP entry on :25202
@@ -30,7 +29,11 @@ import {
   oauthRegister,
   oauthToken,
 } from "./oauth.ts";
-import { handleTierSeed, healthPayload, sessionsPayload } from "./sessions-api.ts";
+import {
+  handleTierSeed,
+  healthPayload,
+  sessionsPayload,
+} from "./sessions-api.ts";
 import {
   deleteSession,
   ensureAgentSession,
@@ -40,8 +43,15 @@ import {
   sweepSessions,
   toolsListPayload,
 } from "./session.ts";
-import { addSink, clearStreams, endpointEvent, removeSink, type StreamSink } from "./sse.ts";
+import {
+  addSink,
+  clearStreams,
+  endpointEvent,
+  removeSink,
+  type StreamSink,
+} from "./sse.ts";
 import { gfetch, getPool } from "./catalog.ts";
+import { dispatchRpc } from "./dispatch.ts";
 
 const cors: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -57,9 +67,7 @@ function publicOrigin(req: Request, url: URL): string {
     (url.protocol ? url.protocol.replace(":", "") : "") ||
     "https";
   const host =
-    req.headers.get("x-forwarded-host") ||
-    req.headers.get("host") ||
-    url.host;
+    req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
   return `${proto}://${host}`;
 }
 
@@ -68,28 +76,49 @@ const server = Bun.serve({
   hostname: "127.0.0.1",
   reusePort: true,
   async fetch(req) {
-    try { const u = new URL(req.url); if (u.pathname === '/health' || u.pathname.endsWith('/health')) { return new Response(JSON.stringify({ok:true,service:'doorbell',version:'7.0.0'}), {headers:{'Content-Type':'application/json','Access-Control-Allow-Origin':'*'}}); } } catch {}
+    try {
+      const u = new URL(req.url);
+      if (u.pathname === "/health" || u.pathname.endsWith("/health")) {
+        return new Response(
+          JSON.stringify({ ok: true, service: "doorbell", version: "7.0.0" }),
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "Access-Control-Allow-Origin": "*",
+            },
+          },
+        );
+      }
+    } catch {}
     const url = new URL(req.url);
     const path = url.pathname;
 
-    if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+    if (req.method === "OPTIONS")
+      return new Response(null, { status: 204, headers: cors });
     console.log(
       `[req] ${req.method} ${path}` +
-      ` ws=${req.headers.get("x-doorbell-workspace") || "-"}` +
-      ` ua=${(req.headers.get("user-agent") || "-").slice(0, 80)}` +
-      ` agent=${req.headers.get("x-agent-id") || "-"}`
+        ` ws=${req.headers.get("x-doorbell-workspace") || "-"}` +
+        ` ua=${(req.headers.get("user-agent") || "-").slice(0, 80)}` +
+        ` agent=${req.headers.get("x-agent-id") || "-"}`,
     );
 
     // OAuth fakes
     if (path.includes("oauth-protected-resource"))
-      return Response.json(oauthProtectedResource(url, publicOrigin(req, url)), { headers: cors });
+      return Response.json(
+        oauthProtectedResource(url, publicOrigin(req, url)),
+        { headers: cors },
+      );
     if (path.includes("oauth-authorization-server"))
-      return Response.json(oauthAuthorizationServer(publicOrigin(req, url)), { headers: cors });
-    if (path.endsWith("jwks.json")) return Response.json({ keys: [] }, { headers: cors });
+      return Response.json(oauthAuthorizationServer(publicOrigin(req, url)), {
+        headers: cors,
+      });
+    if (path.endsWith("jwks.json"))
+      return Response.json({ keys: [] }, { headers: cors });
     if (path.endsWith("/register"))
       return Response.json(oauthRegister(), { status: 201, headers: cors });
     if (path.endsWith("/authorize")) return oauthAuthorizeRedirect(url);
-    if (path.endsWith("/token")) return Response.json(oauthToken(), { headers: cors });
+    if (path.endsWith("/token"))
+      return Response.json(oauthToken(), { headers: cors });
 
     if (path.endsWith("/health") || path === "/health") {
       return Response.json(healthPayload(), { headers: cors });
@@ -112,6 +141,15 @@ const server = Bun.serve({
     if (isMcp) {
       const workspace = detectWorkspace(req, url);
 
+      // Fast http→wss path: a GET with `Upgrade: websocket` turns into a
+      // persistent MCP WebSocket instead of an SSE stream. All JSON-RPC then
+      // rides text frames; responses correlate by id. (Android/iOS/MCP clients
+      // that only speak streamable-HTTP keep using the SSE GET below.)
+      if ((req.headers.get("upgrade") || "").toLowerCase() === "websocket") {
+        if (server.upgrade(req)) return undefined;
+        return new Response("upgrade failed", { status: 400 });
+      }
+
       if (req.method === "GET") {
         server.timeout(req, 0);
         const ctx = parseAgentContext(req, url, workspace);
@@ -124,11 +162,22 @@ const server = Bun.serve({
             const sink: StreamSink = {
               id: sinkId,
               enqueue: (c) => {
-                try { controller.enqueue(c); } catch { /* stream closed */ }
+                try {
+                  controller.enqueue(c);
+                } catch {
+                  /* stream closed */
+                }
               },
             };
             addSink(key, sink);
-            controller.enqueue(endpointEvent(publicOrigin(req, url), ctx.sparkSid, ctx.agentId, path));
+            controller.enqueue(
+              endpointEvent(
+                publicOrigin(req, url),
+                ctx.sparkSid,
+                ctx.agentId,
+                path,
+              ),
+            );
             // Tailscale funnel is HTTP/2 and drops idle streams. Spark's
             // gemini-mcp.ts sent this every 5s; the v7 rewrite lost it and
             // clients saw a silent disconnect after ~30-60s.
@@ -136,12 +185,18 @@ const server = Bun.serve({
               try {
                 controller.enqueue(new TextEncoder().encode(": keepalive\n\n"));
               } catch {
-                if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+                if (keepAlive) {
+                  clearInterval(keepAlive);
+                  keepAlive = null;
+                }
               }
             }, 5000);
           },
           cancel() {
-            if (keepAlive) { clearInterval(keepAlive); keepAlive = null; }
+            if (keepAlive) {
+              clearInterval(keepAlive);
+              keepAlive = null;
+            }
             removeSink(key, sinkId);
           },
         });
@@ -149,7 +204,7 @@ const server = Bun.serve({
           headers: {
             "Content-Type": "text/event-stream",
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
+            Connection: "keep-alive",
             "X-Accel-Buffering": "no",
             ...cors,
           },
@@ -164,7 +219,11 @@ const server = Bun.serve({
           body = JSON.parse(bodyText);
         } catch {
           return Response.json(
-            { jsonrpc: "2.0", id: null, error: { code: -32700, message: "parse error" } },
+            {
+              jsonrpc: "2.0",
+              id: null,
+              error: { code: -32700, message: "parse error" },
+            },
             { status: 400, headers: cors },
           );
         }
@@ -177,7 +236,10 @@ const server = Bun.serve({
             {
               jsonrpc: "2.0",
               id: body.id ?? null,
-              error: { code: -32000, message: `gatehouse unavailable: ${e.message}` },
+              error: {
+                code: -32000,
+                message: `gatehouse unavailable: ${e.message}`,
+              },
             },
             { status: 502, headers: cors },
           );
@@ -196,17 +258,41 @@ const server = Bun.serve({
                 supportedVersions: ["2025-11-25"],
                 capabilities: { tools: { listChanged: true } },
                 _meta: {
-                  "io.modelcontextprotocol/serverInfo": { name: "doorbell", version: VERSION },
+                  "io.modelcontextprotocol/serverInfo": {
+                    name: "doorbell",
+                    version: VERSION,
+                  },
                 },
                 instructions:
                   "doorbell v7. Router dispatchers are the catalog. list_routes names upstream tools.",
                 tools: [
-                  { name: "call_read", description: "Dispatch to a read-only tool." },
-                  { name: "call_write", description: "Dispatch to a write or read tool." },
-                  { name: "call_fetch", description: "Fetch and inspect resources across connected tools." },
-                { name: "read_batch", description: "Fetch and process batched query results across tools." },
-                  { name: "list_routes", description: "List every tool on the underlying surface." },
-                  { name: "route", description: "Dispatch to any tool on the underlying MCP surface." },
+                  {
+                    name: "call_read",
+                    description: "Dispatch to a read-only tool.",
+                  },
+                  {
+                    name: "call_write",
+                    description: "Dispatch to a write or read tool.",
+                  },
+                  {
+                    name: "call_fetch",
+                    description:
+                      "Fetch and inspect resources across connected tools.",
+                  },
+                  {
+                    name: "read_batch",
+                    description:
+                      "Fetch and process batched query results across tools.",
+                  },
+                  {
+                    name: "list_routes",
+                    description: "List every tool on the underlying surface.",
+                  },
+                  {
+                    name: "route",
+                    description:
+                      "Dispatch to any tool on the underlying MCP surface.",
+                  },
                 ],
                 ttlMs: 3600000,
                 cacheScope: "public",
@@ -220,7 +306,11 @@ const server = Bun.serve({
         try {
           if (method === "initialize") {
             session.clientInfoName = body.params?.clientInfo?.name;
-            response = handleInitialize(session, reqId, body.params?.protocolVersion);
+            response = handleInitialize(
+              session,
+              reqId,
+              body.params?.protocolVersion,
+            );
           } else if (method === "tools/list") {
             response = toolsListPayload(session, reqId);
           } else if (method === "tools/call") {
@@ -236,18 +326,20 @@ const server = Bun.serve({
             );
           } else {
             const { extractJson } = await import("./catalog.ts");
-            const r = await gfetch(getPool(session.poolKey)?.gateSid ?? null, body);
+            const r = await gfetch(
+              getPool(session.poolKey)?.gateSid ?? null,
+              body,
+            );
             if (r.sid) {
               const { promotePoolGateSid } = await import("./catalog.ts");
               promotePoolGateSid(session.poolKey, r.sid);
               session.state.gateSid = r.sid;
             }
-            response =
-              extractJson(r.text) || {
-                jsonrpc: "2.0",
-                id: reqId,
-                error: { code: -32601, message: `unhandled: ${method}` },
-              };
+            response = extractJson(r.text) || {
+              jsonrpc: "2.0",
+              id: reqId,
+              error: { code: -32601, message: `unhandled: ${method}` },
+            };
           }
         } catch (e: any) {
           response = {
@@ -273,9 +365,58 @@ const server = Bun.serve({
 
     return new Response("not found", { status: 404, headers: cors });
   },
+  websocket: {
+    open() {
+      // No per-socket state needed: dispatch is session-aware via the message.
+    },
+    async message(ws, raw) {
+      try {
+        const text =
+          typeof raw === "string" ? raw : new TextDecoder().decode(raw);
+        let msg: any;
+        try {
+          msg = JSON.parse(text);
+        } catch {
+          ws.send(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: null,
+              error: { code: -32700, message: "parse error" },
+            }),
+          );
+          return;
+        }
+        const url = new URL("/doorbell-mcp", "http://127.0.0.1");
+        const method = msg.method;
+        const id = msg.id ?? null;
+        const params = msg.params;
+        const result = await dispatchRpc(null, url, method, id, params);
+        if (result.body === null) return; // 202 notifications: no reply
+        const headers: Record<string, string> = { ...result.headers };
+        if (result.mcpSessionId)
+          headers["mcp-session-id"] = result.mcpSessionId;
+        ws.send(JSON.stringify({ ...(result.body as object) }));
+      } catch (err: any) {
+        ws.send(
+          JSON.stringify({
+            jsonrpc: "2.0",
+            id: null,
+            error: {
+              code: -32000,
+              message: `doorbell ws error: ${err?.message ?? String(err)}`,
+            },
+          }),
+        );
+      }
+    },
+    close() {},
+  },
 });
 
-setInterval(() => sweepSessions(SESSION_TTL_MS, MAX_AGENT_SESSIONS), SWEEP_INTERVAL_MS);
+setInterval(
+  () => sweepSessions(SESSION_TTL_MS, MAX_AGENT_SESSIONS),
+  SWEEP_INTERVAL_MS,
+);
 
 console.log(`[✓] doorbell v7 — :${PORT}`);
 console.log(`    upstream: ${GATEHOUSE}`);
