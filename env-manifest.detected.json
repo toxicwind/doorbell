@@ -1,0 +1,323 @@
+{
+  "product": "doorbell",
+  "path": "/home/toxic/pens/ranch/products/doorbell",
+  "files": 69,
+  "detected_at": "2026-10-30T06:11:06.444756Z",
+  "env_vars": {
+    "ALPHAXIV_MCP": [
+      "xai/src/core.ts"
+    ],
+    "ALPHAXIV_MCP_URL": [
+      "xai/src/core.ts"
+    ],
+    "DEST": [
+      "host-install/repull.sh"
+    ],
+    "DOORBELL_AUTH_SECRET": [
+      "src/oauth-edge.ts"
+    ],
+    "DOORBELL_DEST": [
+      "host-install/v7-fix.sh"
+    ],
+    "DOORBELL_EDGE_DATA": [
+      "src/oauth-edge.ts"
+    ],
+    "DOORBELL_FLEET_FULL_MAX": [
+      "src/policies/fleet-quota.ts"
+    ],
+    "DOORBELL_PORT": [
+      "src/config.ts"
+    ],
+    "DOORBELL_PUBLIC": [
+      "host-install/repull.sh"
+    ],
+    "DOORBELL_RAW": [
+      "host-install/install.sh",
+      "host-install/pitchfork-takeover.sh",
+      "install.sh"
+    ],
+    "DOORBELL_REPO": [
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh"
+    ],
+    "DOORBELL_ROOT": [
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh",
+      "src/config.ts"
+    ],
+    "DOORBELL_SEED_TIER": [
+      "src/config.ts",
+      "src/policies/operator-seed.ts"
+    ],
+    "DOORBELL_TARBALL": [
+      "host-install/v7-fix.sh"
+    ],
+    "DOORBELL_UPSTREAM": [
+      "src/oauth-edge.ts"
+    ],
+    "DOORBELL_WORKSPACE": [
+      "src/config.ts"
+    ],
+    "EDGE_PORT": [
+      "scripts/start-bg.sh",
+      "scripts/stop-bg.sh",
+      "spark/doorbell-edge.ts",
+      "src/edge.ts",
+      "xai/doorbell-edge.ts",
+      "xai/src/config.ts"
+    ],
+    "ESTATE": [
+      "RESTORE.sh",
+      "host-install/install.sh",
+      "host-install/lock-it-in.sh",
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh",
+      "install.sh"
+    ],
+    "EXEC_WS_UPSTREAM": [
+      "src/oauth-edge.ts"
+    ],
+    "FORCE_SYNC": [
+      "host-install/pitchfork-takeover.sh"
+    ],
+    "GEMINI_MCP_PORT": [
+      "spark/gemini-mcp.ts",
+      "src/config.ts"
+    ],
+    "HOME": [
+      "host-install/pitchfork-takeover.sh",
+      "scripts/start-bg.sh",
+      "scripts/stop-bg.sh",
+      "src/config.ts",
+      "src/oauth-edge.ts"
+    ],
+    "ISSUER": [
+      "xai/src/core.ts"
+    ],
+    "MCPPROXY_API_KEY": [
+      "host-install/install.sh",
+      "host-install/pitchfork-takeover.sh",
+      "install.sh",
+      "scripts/start-bg.sh",
+      "src/config.ts",
+      "src/oauth-edge.ts",
+      "xai/src/config.ts",
+      "xai/src/core.ts"
+    ],
+    "MONAD": [
+      "spark/doorbell-edge.ts",
+      "src/edge.ts",
+      "xai/doorbell-edge.ts"
+    ],
+    "MONAD_PORT": [
+      "scripts/start-bg.sh",
+      "scripts/stop-bg.sh",
+      "xai/src/config.ts",
+      "xai/src/core.ts"
+    ],
+    "MONAD_URL": [
+      "scripts/start-bg.sh",
+      "spark/doorbell-edge.ts",
+      "src/edge.ts",
+      "xai/doorbell-edge.ts",
+      "xai/src/config.ts"
+    ],
+    "OAUTH_EDGE_PORT": [
+      "src/oauth-edge.ts"
+    ],
+    "PETRI_PILOT_URL": [
+      "xai/src/core.ts"
+    ],
+    "PORT": [
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh",
+      "spark/doorbell-edge.ts",
+      "spark/gemini-mcp.ts",
+      "src/config.ts",
+      "src/index.ts",
+      "src/oauth-edge.ts",
+      "xai/doorbell-edge.ts",
+      "xai/src/core.ts"
+    ],
+    "PUBLIC": [
+      "host-install/repull.sh"
+    ],
+    "PUBLIC_HOST": [
+      "host-install/lock-it-in.sh"
+    ],
+    "PUBLIC_ISSUER": [
+      "src/config.ts",
+      "src/oauth-edge.ts",
+      "xai/src/config.ts",
+      "xai/src/core.ts"
+    ],
+    "SECRETS": [
+      "host-install/fix-secrets-newlines.sh",
+      "host-install/pitchfork-takeover.sh"
+    ],
+    "SHEAF_AI_URL": [
+      "xai/src/core.ts"
+    ],
+    "SHEAF_PROXY_URL": [
+      "xai/src/core.ts"
+    ],
+    "SIGMA_GUARD_URL": [
+      "xai/src/core.ts"
+    ],
+    "SQUAWK_WS_UPSTREAM": [
+      "src/oauth-edge.ts"
+    ],
+    "STAGING_PORT": [
+      "src/config.ts"
+    ],
+    "THRESHER": [
+      "src/index.ts",
+      "xai/src/core.ts"
+    ],
+    "THRESHER_KEY": [
+      "spark/gemini-mcp.ts"
+    ],
+    "THRESHER_URL": [
+      "spark/gemini-mcp.ts",
+      "src/config.ts",
+      "xai/src/config.ts",
+      "xai/src/core.ts"
+    ],
+    "UPSTREAM": [
+      "src/oauth-edge.ts"
+    ],
+    "ZX_MCP_URL": [
+      "xai/src/core.ts"
+    ],
+    "agentId": [
+      "src/sse.ts",
+      "xai/src/core.ts"
+    ],
+    "base": [
+      "src/oauth.ts"
+    ],
+    "bearer": [
+      "src/catalog.ts",
+      "xai/src/core.ts"
+    ],
+    "body": [
+      "src/oauth-edge.ts"
+    ],
+    "clientInfoName": [
+      "xai/src/grok-boot.ts"
+    ],
+    "client_id": [
+      "src/oauth-edge.ts"
+    ],
+    "cls": [
+      "xai/src/core.ts"
+    ],
+    "code": [
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh"
+    ],
+    "err": [
+      "src/index.ts"
+    ],
+    "example": [
+      "host-install/install.sh",
+      "host-install/pitchfork-takeover.sh",
+      "install.sh"
+    ],
+    "fName": [
+      "xai/src/core.ts"
+    ],
+    "fingerprint": [
+      "src/catalog.ts"
+    ],
+    "fused": [
+      "xai/src/core.ts"
+    ],
+    "hit": [
+      "host-install/maximal-fix.sh"
+    ],
+    "host": [
+      "src/index.ts",
+      "src/oauth-edge.ts"
+    ],
+    "keep": [
+      "host-install/pitchfork-takeover.sh",
+      "host-install/repull.sh"
+    ],
+    "label": [
+      "src/oauth-edge.ts"
+    ],
+    "live": [
+      "RESTORE.sh"
+    ],
+    "max": [
+      "host-install/pitchfork-takeover.sh"
+    ],
+    "membraneId": [
+      "xai/src/core.ts"
+    ],
+    "method": [
+      "src/dispatch.ts",
+      "src/index.ts",
+      "xai/src/core.ts"
+    ],
+    "msg": [
+      "xai/src/core.ts"
+    ],
+    "name": [
+      "xai/src/core.ts"
+    ],
+    "origin": [
+      "src/oauth-edge.ts",
+      "src/sse.ts"
+    ],
+    "path": [
+      "host-install/pitchfork-takeover.sh",
+      "src/index.ts"
+    ],
+    "port": [
+      "host-install/pitchfork-takeover.sh",
+      "scripts/start-bg.sh",
+      "scripts/stop-bg.sh"
+    ],
+    "proto": [
+      "src/index.ts",
+      "src/oauth-edge.ts"
+    ],
+    "requested": [
+      "xai/src/core.ts"
+    ],
+    "resourcePath": [
+      "src/oauth-edge.ts",
+      "src/oauth.ts"
+    ],
+    "role": [
+      "xai/src/grok-boot.ts"
+    ],
+    "sessionId": [
+      "spark/gemini-mcp.ts",
+      "src/sse.ts"
+    ],
+    "signal": [
+      "xai/src/grok-boot.ts"
+    ],
+    "suffix": [
+      "xai/src/core.ts"
+    ],
+    "surface": [
+      "src/sse.ts"
+    ],
+    "target": [
+      "xai/src/core.ts"
+    ],
+    "toolClass": [
+      "xai/src/core.ts"
+    ],
+    "toolName": [
+      "xai/src/core.ts"
+    ],
+    "transitionName": [
+      "xai/src/core.ts"
+    ]
+  }
+}

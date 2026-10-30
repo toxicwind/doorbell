@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Patch mcpproxy/gatehouse upstream cwd/command to located ranch/tools paths. NO SYMLINKS.
+# Patch mcpproxy/thresher upstream cwd/command to located ranch/tools paths. NO SYMLINKS.
 set -euo pipefail
 declare -A NEW=(
   [kitty-mcp-server]=/home/toxic/estate/ranch/kitty-mcp-server
@@ -18,9 +18,9 @@ mapfile -t CFGS < <(
     -maxdepth 4 \( -name 'mcp_config.json' -o -name 'mcp_proxy.json' -o -name 'mcpproxy*.json' -o -name 'servers.json' \) \
     2>/dev/null | grep -v '/backup-' | grep -v '/tau/backup' | head -40
 )
-# also pitchfork / gatehouse toml that may embed paths
+# also pitchfork / thresher toml that may embed paths
 mapfile -t TOMLS < <(
-  find /home/toxic/estate -maxdepth 3 \( -name 'pitchfork.toml' -o -name 'mcpproxy.toml' -o -name 'gatehouse*.toml' \) 2>/dev/null | head -20
+  find /home/toxic/estate -maxdepth 3 \( -name 'pitchfork.toml' -o -name 'mcpproxy.toml' -o -name 'thresher*.toml' \) 2>/dev/null | head -20
 )
 printf 'JSON:%s\n' "${CFGS[@]:-none}"
 printf 'TOML:%s\n' "${TOMLS[@]:-none}"
@@ -106,8 +106,8 @@ print("TOTAL", len(ch), "changes in", path)
 PY
 done
 
-echo "=== restart gatehouse / mcpproxy if pitchfork knows them ==="
-for d in gatehouse mcpproxy mcp-proxy mesh; do
+echo "=== restart thresher / mcpproxy if pitchfork knows them ==="
+for d in thresher mcpproxy mcp-proxy mesh; do
   pitchfork restart "$d" 2>/dev/null || pitchfork start "$d" 2>/dev/null || true
 done
 echo "=== done — paste output ==="

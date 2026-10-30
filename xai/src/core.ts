@@ -82,7 +82,7 @@ const parseTier = (s: string, topology?: VoT): Tier | null => {
 // ═══════════════════════════════════════════════════════════════════════════════
 
 const PORT = parseInt(process.env.MONAD_PORT || "25204", 10);
-const GATEHOUSE = process.env.GATEHOUSE_URL || "http://127.0.0.1:25127/mcp";
+const THRESHER = process.env.THRESHER_URL || "http://127.0.0.1:25127/mcp";
 const KEY = process.env.MCPPROXY_API_KEY || "";
 const ISSUER = process.env.PUBLIC_ISSUER || "https://github-mcp-host.tailc9ac71.ts.net";
 const ALPHAXIV_MCP = process.env.ALPHAXIV_MCP_URL || "https://api.alphaxiv.org/mcp/v1";
@@ -1495,7 +1495,7 @@ interface GFetchResult { text: string; sid: string | null; status: number; }
 
 const gfetch = (
   sid: string | null, body: unknown,
-  endpoint: string = GATEHOUSE, bearer: string = KEY
+  endpoint: string = THRESHER, bearer: string = KEY
 ): Task<GFetchResult> =>
   async () => {
     const headers: Record<string, string> = {
@@ -2047,7 +2047,7 @@ const server = Bun.serve({
 
     if (path.endsWith("/health")) {
       return Response.json({
-        ok: true, gatehouse: GATEHOUSE, alphaxiv: ALPHAXIV_MCP,
+        ok: true, thresher: THRESHER, alphaxiv: ALPHAXIV_MCP,
         agentSessions: agentSessions.size, poolEntries: pool.size,
         tiers: TIER_NAMES, vot: VOT_DESCRIPTION,
         subsystems: ["sheaf","operad","coalgebra","session","petri","membrane",
@@ -2154,7 +2154,7 @@ const server = Bun.serve({
 setInterval(sweepSessions, SWEEP_INTERVAL_MS);
 
 console.log(`[✓] doorbell-monad v6.0 EXTENDED MAXIMAL — :${PORT}`);
-console.log(`    upstream: ${GATEHOUSE}`);
+console.log(`    upstream: ${THRESHER}`);
 console.log(`    research: ${ALPHAXIV_MCP}`);
 console.log(`    sheaf:    ${SIGMA_GUARD_URL}`);
 console.log(`    zx:       ${ZX_MCP_URL}`);

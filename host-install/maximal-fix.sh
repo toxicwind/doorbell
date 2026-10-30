@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Maximal estate fix: Funnel + MCP paths + locate/patch moved gatehouse upstreams.
+# Maximal estate fix: Funnel + MCP paths + locate/patch moved thresher upstreams.
 # No bad symlinks. Run on the estate host as toxic.
 set -euo pipefail
 
@@ -62,12 +62,12 @@ locate_one tmux-mcp
 locate_one desktop-commander
 ls /home/toxic/estate/tools 2>/dev/null || true
 
-echo "=== 6) Find mcpproxy / gatehouse config ==="
+echo "=== 6) Find mcpproxy / thresher config ==="
 for c in \
   /home/toxic/.config/mcpproxy/mcp_proxy.json \
   /home/toxic/.config/mcpproxy/config.json \
   /home/toxic/.mcpproxy/config.json \
-  /home/toxic/estate/gatehouse/mcpproxy.json \
+  /home/toxic/estate/thresher/mcpproxy.json \
   /home/toxic/estate/config/mcpproxy.json \
   /home/toxic/estate/ranch/*/mcpproxy*.json
 do

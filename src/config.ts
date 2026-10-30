@@ -20,7 +20,7 @@ export type TierSource =
   | "tier/seed"
   | "unknown";
 export const PORT = Number((typeof Bun !== "undefined" && (Bun as any).env?.STAGING_PORT) || (typeof Bun !== "undefined" && (Bun as any).env?.GEMINI_MCP_PORT) || process.env.STAGING_PORT || process.env.GEMINI_MCP_PORT || process.env.DOORBELL_PORT || process.env.PORT || 25202);
-export const GATEHOUSE = process.env.GATEHOUSE_URL || "http://127.0.0.1:25127/mcp";
+export const THRESHER = process.env.THRESHER_URL || "http://127.0.0.1:25127/mcp";
 export const ISSUER = process.env.PUBLIC_ISSUER || "https://github-mcp-host.tailc9ac71.ts.net";
 export const DOORBELL_ROOT =
   process.env.DOORBELL_ROOT ||

@@ -1,5 +1,5 @@
 /** GET /sessions, POST /tier/seed, GET /health helpers */
-import { GATEHOUSE, parseTier, VERSION, type WorkspaceId } from "./config.ts";
+import { THRESHER, parseTier, VERSION, type WorkspaceId } from "./config.ts";
 import { KEY } from "./config.ts";
 import { enabledPolicyNames } from "./policies.ts";
 import { loadWorkspaceConfig } from "./config.ts";
@@ -11,7 +11,7 @@ export function healthPayload() {
     ok: true,
     service: "doorbell",
     version: VERSION,
-    gatehouse: GATEHOUSE,
+    thresher: THRESHER,
     hasKey: Boolean(KEY),
     agentSessions: sessionCount(),
     poolEntries: allPoolEntries().length,

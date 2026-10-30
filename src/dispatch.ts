@@ -7,7 +7,7 @@
 // / upstream-dispatch semantics without forking behaviour per transport.
 
 import type { AgentContext, AgentSession } from "./session.ts";
-import { detectWorkspace, GATEHOUSE, VERSION } from "./config.ts";
+import { detectWorkspace, THRESHER, VERSION } from "./config.ts";
 import {
   ensureAgentSession,
   handleInitialize,
@@ -123,7 +123,7 @@ export async function dispatchRpc(
         id: reqId,
         error: {
           code: -32000,
-          message: `gatehouse unavailable: ${e instanceof Error ? e.message : String(e)}`,
+          message: `thresher unavailable: ${e instanceof Error ? e.message : String(e)}`,
         },
       },
       status: 502,
@@ -178,7 +178,7 @@ export async function dispatchRpc(
     };
   }
 
-  // Everything else: upstream via Gatehouse.
+  // Everything else: upstream via Thresher.
   try {
     const r = await gfetch(getPool(session.poolKey)?.gateSid ?? null, {
       jsonrpc: "2.0",

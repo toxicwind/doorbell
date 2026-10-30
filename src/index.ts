@@ -15,7 +15,7 @@ function sanitizeMcpWire(text: string): string {
 import { randomBytes } from "crypto";
 import {
   detectWorkspace,
-  GATEHOUSE,
+  THRESHER,
   PORT,
   SESSION_TTL_MS,
   SWEEP_INTERVAL_MS,
@@ -238,7 +238,7 @@ const server = Bun.serve({
               id: body.id ?? null,
               error: {
                 code: -32000,
-                message: `gatehouse unavailable: ${e.message}`,
+                message: `thresher unavailable: ${e.message}`,
               },
             },
             { status: 502, headers: cors },
@@ -419,7 +419,7 @@ setInterval(
 );
 
 console.log(`[✓] doorbell v7 — :${PORT}`);
-console.log(`    upstream: ${GATEHOUSE}`);
+console.log(`    upstream: ${THRESHER}`);
 console.log(`    workspaces: xai/ spark/ (separate; not symlinked)`);
 console.log(`    policies: I→F→D→B→A→C→G→E→H; unresolved → router`);
 console.log(`    v7: first response is the router catalog`);

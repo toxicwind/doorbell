@@ -1,6 +1,6 @@
-/** Gatehouse catalog fetch + classification. Catalog is truth; tiers are views. */
+/** Thresher catalog fetch + classification. Catalog is truth; tiers are views. */
 import { randomBytes } from "crypto";
-import { GATEHOUSE, KEY, VERSION, type ToolClass } from "./config.ts";
+import { THRESHER, KEY, VERSION, type ToolClass } from "./config.ts";
 
 export interface McpTool {
   name: string;
@@ -19,7 +19,7 @@ export interface GFetchResult {
 export async function gfetch(
   sid: string | null,
   body: unknown,
-  endpoint: string = GATEHOUSE,
+  endpoint: string = THRESHER,
   bearer: string = KEY,
 ): Promise<GFetchResult> {
   const headers: Record<string, string> = {

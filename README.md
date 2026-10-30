@@ -2,7 +2,7 @@
 
 HTTP MCP door on port 25202. v7. One initialize returns the router catalog.
 
-`/doorbell-mcp` is the primary path. `/gemini-mcp` is the same handlers. Upstream is gatehouse at `GATEHOUSE_URL` (default `http://127.0.0.1:25127/mcp`).
+`/doorbell-mcp` is the primary path. `/gemini-mcp` is the same handlers. Upstream is thresher at `THRESHER_URL` (default `http://127.0.0.1:25127/mcp`).
 
 ## Tools
 
@@ -34,5 +34,5 @@ That pulls `main` into `/home/toxic/estate/ranch/doorbell` and cold-starts `door
 - `src/index.ts` — HTTP entry
 - `src/session.ts` — initialize, tools/list, tools/call
 - `src/surfaces.ts` — tier views
-- `src/catalog.ts` — gatehouse pool
+- `src/catalog.ts` — thresher pool
 - `host-install/v7-fix.sh` — yote unpack and restart

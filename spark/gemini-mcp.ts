@@ -1,6 +1,6 @@
 const PORT = parseInt(process.env.GEMINI_MCP_PORT || process.env.PORT || "25202");
-const GATEHOUSE_URL = "http://127.0.0.1:25127/mcp";
-const GATEHOUSE_KEY = "763b67284d88ecfa7576fbd54c854e334d88bbf7dddc936927b1b8dfe5b41e59";
+const THRESHER_URL = "http://127.0.0.1:25127/mcp";
+const THRESHER_KEY = "763b67284d88ecfa7576fbd54c854e334d88bbf7dddc936927b1b8dfe5b41e59";
 
 const sessions = new Map<string, ReadableStreamDefaultController>();
 
@@ -84,11 +84,11 @@ Bun.serve({
       }
 
       // Forward JSON-RPC directly to mcpproxy-go
-      const upstream = await fetch(GATEHOUSE_URL, {
+      const upstream = await fetch(THRESHER_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${GATEHOUSE_KEY}`
+          "Authorization": `Bearer ${THRESHER_KEY}`
         },
         body: bodyText
       });
@@ -131,4 +131,4 @@ Bun.serve({
   }
 });
 
-console.log(`[+] mcpproxy-go bridge active on 127.0.0.1:${PORT} -> ${GATEHOUSE_URL}`);
+console.log(`[+] mcpproxy-go bridge active on 127.0.0.1:${PORT} -> ${THRESHER_URL}`);

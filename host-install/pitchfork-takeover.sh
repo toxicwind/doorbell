@@ -119,10 +119,10 @@ mise = false
 retry = true
 ready_http = "http://127.0.0.1:25202/health"
 health_http = { url = "http://127.0.0.1:25202/health", interval = "30s", timeout = "5s", retries = 3 }
-depends = ["gatehouse"]
+depends = ["thresher"]
 boot_start = true
 auto = ["start"]
-env = { MONAD_PORT = "25202", GATEHOUSE_URL = "http://127.0.0.1:25127/mcp", MISE_DISABLE_TOOLS = "1" }
+env = { MONAD_PORT = "25202", THRESHER_URL = "http://127.0.0.1:25127/mcp", MISE_DISABLE_TOOLS = "1" }
 TOML
 
 python3 - << 'PY'
@@ -138,10 +138,10 @@ mise = false
 retry = true
 ready_http = "http://127.0.0.1:25202/health"
 health_http = { url = "http://127.0.0.1:25202/health", interval = "30s", timeout = "5s", retries = 3 }
-depends = ["gatehouse"]
+depends = ["thresher"]
 boot_start = true
 auto = ["start"]
-env = { MONAD_PORT = "25202", GATEHOUSE_URL = "http://127.0.0.1:25127/mcp", MISE_DISABLE_TOOLS = "1" }
+env = { MONAD_PORT = "25202", THRESHER_URL = "http://127.0.0.1:25127/mcp", MISE_DISABLE_TOOLS = "1" }
 '''
 text = re.sub(r"\[daemons\.gemini-mcp\][\s\S]*?(?=\n\[daemons\.|\Z)", "", text)
 pat = re.compile(r"\[daemons\.doorbell-mcp\][\s\S]*?(?=\n\[daemons\.|\Z)")
